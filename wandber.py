@@ -37,7 +37,7 @@ class Wandber:
             step=(step if step is not None else self.step), 
             commit=commit)
         if step is None:
-            self.step += step
+            self.step += 1
 
 
     def close_wandb(self):
