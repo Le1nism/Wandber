@@ -1,21 +1,36 @@
-# Use a base image of Python (Alpine version for a smaller container size and minimal dependencies)
-FROM python:3.10-alpine
+# Use Debian slim as the base image
+FROM python:3.13-slim-bullseye
 
-# Install required build tools and libraries for native dependencies and librdkafka
-# This includes compilers and development libraries to allow Python packages with C/C++ extensions to compile properly
-RUN apk update && apk add --no-cache gcc g++ musl-dev linux-headers librdkafka librdkafka-dev libc-dev python3-dev bash git
+# Install system dependencies required for building Python packages and Kafka dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    wget \
+    cmake \
+    pkg-config \
+    libssl-dev \
+    libsasl2-dev \
+    librdkafka-dev \
+    librdkafka1 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
+# Set the working directory inside the container
+WORKDIR /wandber
 
-# Clone the repository into the 'producer' folder
+# Clone the repository into the 'wandber' folder
 RUN git clone https://github.com/DIETI-DISTA-IoT/Wandber.git wandber
 
 
-# Set the working directory inside the container
-# This is where all the files will be copied, and the commands will be executed
-WORKDIR /wandber
-
 # Upgrade pip to the latest version
 RUN pip install --no-cache-dir --upgrade pip
+
+# We are actually working with confluent_Kafka version 2.6.1. 
+RUN pip install --no-cache-dir \
+confluent_Kafka
+
+# Python 3.13 requires this to be compatible with pytorch
+RUN pip install --upgrade typing_extensions
 
 # Install the dependencies specified in the requirements file and other required libraries
 RUN pip install --no-cache-dir -r requirements.txt
