@@ -57,7 +57,7 @@ def main():
     parser.add_argument('--kafka_broker_url', type=str, default='kafka:9092', help='Kafka broker URL')
     parser.add_argument('--kafka_consumer_group_id', type=str, default=WANDBER, help='Kafka consumer group ID')
     parser.add_argument('--kafka_auto_offset_reset', type=str, default='earliest', help='Start reading messages from the beginning if no offset is present')
-    
+    parser.add_argument('--kafka_topic_update_interval_secs', type=int, default=30, help='Topic update interval for the kafka reader')
     args = parser.parse_args()
     
     wandber = Wandber(args)
