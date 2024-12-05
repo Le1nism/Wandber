@@ -15,12 +15,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory inside the container
-WORKDIR /wandber
-
 # Clone the repository into the 'wandber' folder
 RUN git clone https://github.com/DIETI-DISTA-IoT/Wandber.git wandber
 
+# Set the working directory inside the container
+WORKDIR /wandber
 
 # Upgrade pip to the latest version
 RUN pip install --no-cache-dir --upgrade pip
