@@ -11,21 +11,23 @@ class Wandber:
         
         self.logger = logging.getLogger(WANDBER)
         self.logger.setLevel(args.logging_level.upper())
-        
         self.logger.debug("Initializing wandb")
+        self.wandb_mode = ("online" if args.wandb else "disabled")
+
         wandb.init(
             project=args.project_name,
-            mode=("online" if args.wandb else "disabled"),
+            mode=self.wandb_mode,
             name=args.run_name,
-            config=dict(args)
+            config=dict(vars(args))
         )
-        self.logger.debug("Wandb initialized")
+        self.logger.debug(f"Wandb initialized in {self.wandb_mode} mode")
         self.step = 0
         self.kafka_consumer = KafkaConsumer(
             parent=self,
-            kwargs=args
+            kwargs=vars(args)
         )
         self.kafka_consumer.readining_thread.start()
+        self.kafka_consumer.readining_thread.join()
 
 
     def push_to_wandb(self, key, value, step=None, commit=True):

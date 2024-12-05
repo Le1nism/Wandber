@@ -1,5 +1,4 @@
 from confluent_kafka import Consumer, KafkaError
-import logging
 import time
 import json
 import threading
