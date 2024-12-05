@@ -10,8 +10,10 @@
             "request": "launch",
             "program": "wandber.py",
             "console": "integratedTerminal",
-            "args": ["--logging_level=DEBUG",
-                     "--wandb=True"],
+            "args": [
+                "--logging_level=DEBUG",
+                "--online"
+            ],
             "justMyCode": false
         }
     ]

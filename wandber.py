@@ -8,11 +8,11 @@ WANDBER = "WANDBER"
 
 class Wandber:
     def __init__(self, args):
-        
+        logging.basicConfig(level=args.logging_level.upper())
         self.logger = logging.getLogger(WANDBER)
         self.logger.setLevel(args.logging_level.upper())
         self.logger.debug("Initializing wandb")
-        self.wandb_mode = ("online" if args.wandb else "disabled")
+        self.wandb_mode = ("online" if args.online else "disabled")
 
         wandb.init(
             project=args.project_name,
@@ -46,14 +46,12 @@ class Wandber:
 
 
 def main():
-    global logger, kafka_consumer
 
     parser = argparse.ArgumentParser(description='Wandb reporter process for Open FAIR.')
-    parser.add_argument('--wandb', type=bool, default=False, help='True If wandb should be used in online mode')
     parser.add_argument('--logging_level', default='INFO' ,type=str, help='Logging level')
     parser.add_argument('--project_name', type=str, default="OPEN_FAIR", help='Wandb Project name')
     parser.add_argument('--run_name', type=str, default="Some run", help='Wandb run name')
-    
+    parser.add_argument('--online', action='store_true', help='Send wand metrics to the public wandb cloud')
     parser.add_argument('--kafka_broker_url', type=str, default='kafka:9092', help='Kafka broker URL')
     parser.add_argument('--kafka_consumer_group_id', type=str, default=WANDBER, help='Kafka consumer group ID')
     parser.add_argument('--kafka_auto_offset_reset', type=str, default='earliest', help='Start reading messages from the beginning if no offset is present')
