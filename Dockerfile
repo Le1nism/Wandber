@@ -24,6 +24,9 @@ WORKDIR /wandber
 # Upgrade pip to the latest version
 RUN pip install --no-cache-dir --upgrade pip
 
+RUN pip install --no-cache-dir \
+    torch --index-url https://download.pytorch.org/whl/cpu
+    
 # We are actually working with confluent_Kafka version 2.6.1. 
 RUN pip install --no-cache-dir \
 confluent_Kafka
