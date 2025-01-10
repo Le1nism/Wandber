@@ -75,7 +75,7 @@ def process_message(topic, msg, **kwargs):
     # check if we have at least one element in each buffer:
     if all([len(buffer) > 0 for buffer in weights_buffer.values()]):
         if not global_model_initialized:
-            global_model = init_global_model()
+            global_model.state_dict = aggregate_weights(**kwargs)
         else:
             global_model = aggregate_weights(**kwargs)
     else:
@@ -88,9 +88,9 @@ def aggregate_weights(**kwargs):
     logger.debug(f"Aggregating weights")
     aggregation_function = aggregation_functions[kwargs.get('aggregation_strategy')]
     if aggregation_function is federated_averaging:
-        return aggregation_function(global_model, [buffer.get() for buffer in weights_buffer.values()])
+        return aggregation_function(global_model.state_dict(), [buffer.get() for buffer in weights_buffer.values()])
     else:
-        return aggregation_function(global_model.get_weights(), [buffer.get() for buffer in weights_buffer.values()], **kwargs)
+        return aggregation_function(global_model.state_dict(), [buffer.get() for buffer in weights_buffer.values()], **kwargs)
 
 
 def create_weights_buffer(vehicle_weights_topics, **kwargs):
