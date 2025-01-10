@@ -47,7 +47,7 @@ def deserialize_message(msg):
     try:
         # Decode the message and deserialize it into a Python dictionary
         message_value = pickle.loads(msg.value())
-        logging.info(f"received message from topic [{msg.topic()}]")
+        logging.debug(f"received message from topic [{msg.topic()}]")
         return message_value
     except json.JSONDecodeError as e:
         logging.error(f"Error deserializing message: {e}")
