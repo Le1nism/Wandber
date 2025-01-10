@@ -162,7 +162,7 @@ def main():
     args = parser.parse_args()
 
     logger = logging.getLogger(FEDERATED_LEARNING)
-    logger.setLevel(args.logging_level)
+    logger.setLevel(str(args.logging_level).upper())
 
     # create a global model placeholder
     global_model = create_global_model_placeholder(**vars(args))
