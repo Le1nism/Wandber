@@ -22,31 +22,34 @@ def dict_to_tensor(data_dict):
 
 
 class Buffer:
+    """
+    A FIFO buffer to store the weights of the vehicles.
+    """
     def __init__(self, size, label=None):
         self.size = size
         self.buffer = []
         self.label = label
 
+
     def add(self, item):
-        self.buffer.append(item)
+        """
+        Add an item to the buffer in the first position.
+        """
+        # add item to position 0:
+        self.buffer.insert(0, item)
         if len(self.buffer) > self.size:
-            self.buffer.pop(0)
+            # too much info in the buffer, remove the last item
+            self.buffer.pop()
 
 
-    def sample(self, n):
-        if len(self.buffer) < n:
-            record_list = self.buffer
+    def get(self):
+        """
+        This is a FIFO buffer, so we return the last item.
+        """
+        if len(self.buffer) > 0:
+            return self.buffer[-1]
         else:
-            record_list = random.sample(self.buffer, n)
-
-        tensors = []
+            return None
         
-        for record in record_list:
-            tensors.append(dict_to_tensor(record))
-            x_batch = torch.stack(tensors)
-            y_batch = torch.tensor([[self.label]] * len(tensors)).to(torch.float32)
-
-        if len(tensors) == 0:
-            x_batch, y_batch = [], []
-        
-        return x_batch, y_batch
+    def __len__(self):
+        return len(self.buffer)

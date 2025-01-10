@@ -2,15 +2,24 @@ import argparse
 import logging
 import threading
 import json
-import time
 from confluent_kafka import Consumer, KafkaError
 from confluent_kafka.admin import AdminClient
+from aggregation import federated_averaging, fed_yogi
 import pickle
+from modules import MLP
 
 from preprocessing import Buffer
 
 
+
 FEDERATED_LEARNING = "FEDERATED_LEARNING"
+
+global_model_initialized = False
+
+aggregation_functions = {
+    "fedavg": federated_averaging,
+    "fedyogi": fed_yogi
+    }
 
 
 def create_consumer(**kwargs):
@@ -24,12 +33,13 @@ def create_consumer(**kwargs):
 
 
 
-def check_vehicle_topics():
+def check_vehicle_topics(**kwargs):
 
-    admin_client = AdminClient({'bootstrap.servers': KAFKA_BROKER})
+    admin_client = AdminClient({'bootstrap.servers': kwargs.get('kafka_broker_url')})
     existing_topics = admin_client.list_topics(timeout=10).topics.keys()
     # get all topics ending with "_weights"
     vehicle_topics = [topic for topic in existing_topics if topic.endswith("_weights")]
+    logger.debug("Found the following vehicle topics: %s", vehicle_topics)
     return vehicle_topics
 
 
@@ -45,11 +55,52 @@ def deserialize_message(msg):
         return None
 
 
-def process_message(topic, msg):
+def init_global_model():
+    """
+        TODO Initialize the global model with the weights of the vehicles.
+    """
+    global global_model_initialized
+    global_model_initialized = True
+    pass
+
+
+def process_message(topic, msg, **kwargs):
     """
         Process the deserialized message based on its topic.
     """
-    pass
+    global global_model, weights_buffer
+
+    weights_buffer[topic].add(msg)
+
+    # check if we have at least one element in each buffer:
+    if all([len(buffer) > 0 for buffer in weights_buffer.values()]):
+        if not global_model_initialized:
+            global_model = init_global_model()
+        else:
+            global_model = aggregate_weights(**kwargs)
+    else:
+        logger.debug(f"Waiting for more data to aggregate the weights.")
+
+
+def aggregate_weights(**kwargs):
+    global global_model, weights_buffer
+
+    logger.debug(f"Aggregating weights")
+    aggregation_function = aggregation_functions[kwargs.get('aggregation_strategy')]
+    if aggregation_function is federated_averaging:
+        return aggregation_function(global_model, [buffer.get() for buffer in weights_buffer.values()])
+    else:
+        return aggregation_function(global_model.get_weights(), [buffer.get() for buffer in weights_buffer.values()], **kwargs)
+
+
+def create_weights_buffer(vehicle_weights_topics, **kwargs):
+    """
+        Create a buffer for each vehicle to store the weights.
+    """
+    weights_buffer = {}
+    for topic in vehicle_weights_topics:
+        weights_buffer[topic] = Buffer(size=kwargs.get('weights_buffer_size', 3), label=topic)
+    return weights_buffer
 
 
 def consume_weights_data(vehicle_weights_topics, **kwargs):
@@ -73,7 +124,7 @@ def consume_weights_data(vehicle_weights_topics, **kwargs):
 
             deserialized_data = deserialize_message(msg)
             if deserialized_data:
-                process_message(msg.topic(), deserialized_data)
+                process_message(msg.topic(), deserialized_data, **kwargs)
 
     except KeyboardInterrupt:
         logger.info(f" Consumer interrupted by user.")
@@ -84,21 +135,12 @@ def consume_weights_data(vehicle_weights_topics, **kwargs):
         logger.info(f" Consumer closed.")
 
 
-def push_weights(**kwargs):
-    while True:
-        time.sleep(kwargs.get('weights_push_freq_seconds', 300))
-        weights_reporter.push_weights(brain.model.state_dict())
-
-
-
+def create_global_model_placeholder(**kwargs):
+    return MLP(kwargs.get('input_dim', 59), kwargs.get('output_dim', 1), **kwargs)
 
 
 def main():
-    """
-        Start the consumer for the specific vehicle.
-    """
-    global KAFKA_BROKER
-    global anomalies_buffer, diagnostics_buffer, brain, metrics_reporter, logger, weights_reporter
+    global logger, weights_buffer, global_model
 
     parser = argparse.ArgumentParser(description='Federated Learning script.')
     parser.add_argument('--logging_level', default='INFO' ,type=str, help='Logging level')
@@ -109,18 +151,20 @@ def main():
     parser.add_argument('--kafka_consumer_group_id', type=str, default=FEDERATED_LEARNING, help='Kafka consumer group ID')
     parser.add_argument('--kafka_auto_offset_reset', type=str, default='earliest', help='Start reading messages from the beginning if no offset is present')
     parser.add_argument('--kafka_topic_update_interval_secs', type=int, default=30, help='Topic update interval for the kafka reader')
-
+    parser.add_argument('--aggregation_strategy', type=str, default="fedavg", help='Aggregation strategy for FL')
     args = parser.parse_args()
 
     logger = logging.getLogger(FEDERATED_LEARNING)
     logger.setLevel(args.logging_level)
 
-    KAFKA_BROKER = args.kafka_broker_url
-
-    logging.debug(f"Starting Federated Learning :)")
+    # create a global model placeholder
+    global_model = create_global_model_placeholder(**vars(args))
 
     # how many vehicles we have out there?
-    vehicle_weights_topics = check_vehicle_topics()
+    vehicle_weights_topics = check_vehicle_topics(**vars(args))
+
+    # create buffers for the local weights of each vehicle
+    weights_buffer = create_weights_buffer(vehicle_weights_topics, **vars(args))
 
     consuming_thread=threading.Thread(target=consume_weights_data, args=(vehicle_weights_topics,), kwargs=vars(args))
     consuming_thread.daemon=True
