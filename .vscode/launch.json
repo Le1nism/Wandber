@@ -15,6 +15,17 @@
                 "--online"
             ],
             "justMyCode": false
+        },
+        {
+            "name": "FL",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "federated_learning.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--logging_level=DEBUG"
+            ],
+            "justMyCode": false
         }
     ]
 }
