@@ -7,18 +7,16 @@ from confluent_kafka.admin import AdminClient
 from aggregation import federated_averaging, fed_yogi
 import pickle
 from modules import MLP
-
 from preprocessing import Buffer
-
 
 
 FEDERATED_LEARNING = "FEDERATED_LEARNING"
 
-global_model_initialized = False
-
 aggregation_functions = {
     "fedavg": federated_averaging,
-    "fedyogi": fed_yogi
+    "fedyogi": fed_yogi,
+    "fedprox": None,
+    "fedsgd": None
     }
 
 
@@ -55,14 +53,11 @@ def deserialize_message(msg):
         return None
 
 
-def init_global_model():
-    """
-        TODO Initialize the global model with the weights of the vehicles.
-    """
-    global global_model_initialized
-    global_model_initialized = True
-    pass
-
+def init_global_model(**kwargs):
+    initialisation_strategy = kwargs.get('initialisation_strategy')
+    global_model.initialize_weights(initialisation_strategy)
+    logger.info(f"Global model initialized using {initialisation_strategy} initialization.")
+    
 
 def process_message(topic, msg, **kwargs):
     """
@@ -74,10 +69,8 @@ def process_message(topic, msg, **kwargs):
 
     # check if we have at least one element in each buffer:
     if all([len(buffer) > 0 for buffer in weights_buffer.values()]):
-        if not global_model_initialized:
-            global_model.state_dict = aggregate_weights(**kwargs)
-        else:
-            global_model = aggregate_weights(**kwargs)
+        logger.debug(f"Aggregating weights")
+        global_model.load_state_dict(aggregate_weights(**kwargs))
     else:
         logger.debug(f"Waiting for more data to aggregate the weights.")
 
@@ -151,6 +144,7 @@ def main():
     parser.add_argument('--kafka_consumer_group_id', type=str, default=FEDERATED_LEARNING, help='Kafka consumer group ID')
     parser.add_argument('--kafka_auto_offset_reset', type=str, default='earliest', help='Start reading messages from the beginning if no offset is present')
     parser.add_argument('--kafka_topic_update_interval_secs', type=int, default=30, help='Topic update interval for the kafka reader')
+    parser.add_argument('--initialisation_strategy', type=str, default="xavier", help='Initialisation strategy for global model')
     parser.add_argument('--aggregation_strategy', type=str, default="fedavg", help='Aggregation strategy for FL')
     args = parser.parse_args()
 
@@ -159,6 +153,7 @@ def main():
 
     # create a global model placeholder
     global_model = create_global_model_placeholder(**vars(args))
+    init_global_model(**vars(args))
 
     # how many vehicles we have out there?
     vehicle_weights_topics = check_vehicle_topics(**vars(args))

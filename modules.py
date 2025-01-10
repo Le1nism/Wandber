@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch.nn.init as init
 
 class MLP(nn.Module):
     def __init__(self, input_dim, output_dim, **kwargs):
@@ -24,3 +25,25 @@ class MLP(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+    
+    def initialize_weights(self, strategy='xavier'):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                if strategy == 'xavier':
+                    # Xavier Initialization
+                    init.xavier_uniform_(m.weight)
+                    if m.bias is not None:
+                        init.zeros_(m.bias)
+                elif strategy == 'he':
+                    # He Initialization
+                    init.kaiming_normal_(m.weight)
+                    if m.bias is not None:
+                        init.zeros_(m.bias)
+                elif strategy == 'normal':
+                    # Normal Initialization
+                    init.normal_(m.weight, 0, 0.01)
+                    if m.bias is not None:
+                        init.zeros_(m.bias)
+                else:
+                    raise ValueError(f"Unknown local initialization strategy: {strategy}")
+                
