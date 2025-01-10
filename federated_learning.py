@@ -8,7 +8,7 @@ from aggregation import federated_averaging, fed_yogi
 import pickle
 from modules import MLP
 from preprocessing import Buffer
-
+import time
 
 FEDERATED_LEARNING = "FEDERATED_LEARNING"
 
@@ -54,36 +54,47 @@ def deserialize_message(msg):
 
 
 def init_global_model(**kwargs):
-    initialisation_strategy = kwargs.get('initialisation_strategy')
-    global_model.initialize_weights(initialisation_strategy)
-    logger.info(f"Global model initialized using {initialisation_strategy} initialization.")
+    initialization_strategy = kwargs.get('initialization_strategy')
+    global_model.initialize_weights(initialization_strategy)
+    logger.info(f"Global model initialized using {initialization_strategy} initialization.")
     
 
 def process_message(topic, msg, **kwargs):
     """
         Process the deserialized message based on its topic.
     """
-    global global_model, weights_buffer
+    global weights_buffer
 
     weights_buffer[topic].add(msg)
 
-    # check if we have at least one element in each buffer:
-    if all([len(buffer) > 0 for buffer in weights_buffer.values()]):
-        logger.debug(f"Aggregating weights")
-        global_model.load_state_dict(aggregate_weights(**kwargs))
-    else:
-        logger.debug(f"Waiting for more data to aggregate the weights.")
+    if kwargs.get('aggregation_interval_secs') == 0:
+        aggregate_weights(**kwargs)
+        
+
+def aggregate_weights_periodically(**kwargs):
+    while True:
+        time.sleep(kwargs.get('aggregation_interval_secs'))
+        aggregate_weights(**kwargs)
 
 
 def aggregate_weights(**kwargs):
     global global_model, weights_buffer
 
-    logger.debug(f"Aggregating weights")
-    aggregation_function = aggregation_functions[kwargs.get('aggregation_strategy')]
-    if aggregation_function is federated_averaging:
-        return aggregation_function(global_model.state_dict(), [buffer.get() for buffer in weights_buffer.values()])
+    # check if we have at least one element in each buffer:
+    if all([len(buffer) > 0 for buffer in weights_buffer.values()]):
+        logger.debug(f"Aggregating the weights from {len(weights_buffer)} vehicles.")
+        aggregation_function = aggregation_functions[kwargs.get('aggregation_strategy')]
+        if aggregation_function is federated_averaging:
+            aggregated_state_dict = aggregation_function(global_model.state_dict(), [buffer.get() for buffer in weights_buffer.values()])
+        else:
+            aggregated_state_dict = aggregation_function(global_model.state_dict(), [buffer.get() for buffer in weights_buffer.values()], **kwargs)
+        
+        # pop the oldest element from each one of the buffers
+        for buffer in weights_buffer.values():
+            buffer.pop()
+        global_model.load_state_dict(aggregated_state_dict)
     else:
-        return aggregation_function(global_model.state_dict(), [buffer.get() for buffer in weights_buffer.values()], **kwargs)
+        logger.debug(f"Waiting for more data to aggregate the weights.")
 
 
 def create_weights_buffer(vehicle_weights_topics, **kwargs):
@@ -144,8 +155,10 @@ def main():
     parser.add_argument('--kafka_consumer_group_id', type=str, default=FEDERATED_LEARNING, help='Kafka consumer group ID')
     parser.add_argument('--kafka_auto_offset_reset', type=str, default='earliest', help='Start reading messages from the beginning if no offset is present')
     parser.add_argument('--kafka_topic_update_interval_secs', type=int, default=30, help='Topic update interval for the kafka reader')
-    parser.add_argument('--initialisation_strategy', type=str, default="xavier", help='Initialisation strategy for global model')
+    parser.add_argument('--initialization_strategy', type=str, default="xavier", help='Initialization strategy for global model')
     parser.add_argument('--aggregation_strategy', type=str, default="fedavg", help='Aggregation strategy for FL')
+    parser.add_argument('--weights_buffer_size', type=int, default=3, help='Size of the buffer for weights')
+    parser.add_argument('--aggregation_interval_secs', type=int, default=59, help='Aggregation interval in seconds')
     args = parser.parse_args()
 
     logger = logging.getLogger(FEDERATED_LEARNING)
@@ -164,19 +177,16 @@ def main():
     consuming_thread=threading.Thread(target=consume_weights_data, args=(vehicle_weights_topics,), kwargs=vars(args))
     consuming_thread.daemon=True
     consuming_thread.start()
-    """
-    
 
-    training_thread=threading.Thread(target=train_model, kwargs=vars(args))
-    training_thread.daemon=True
-    
-    
-    training_thread.start()
+    if args.aggregation_interval_secs > 0:
+        # create a thread to aggregate the weights each aggregation_interval_secs:
+        aggregation_thread = threading.Thread(target=aggregate_weights_periodically, kwargs=vars(args))
+        aggregation_thread.start()
+        
 
-    
-    training_thread.join()
-    """
     consuming_thread.join()
+    if args.aggregation_interval_secs > 0:
+        aggregation_thread.join()
 
 
 if __name__=="__main__":

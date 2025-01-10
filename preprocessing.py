@@ -51,5 +51,13 @@ class Buffer:
         else:
             return None
         
+    def pop(self):
+        """
+        Remove the last item from the buffer.
+        """
+        if len(self.buffer) > 0:
+            self.buffer.pop()
+
+
     def __len__(self):
         return len(self.buffer)
