@@ -9,6 +9,7 @@ import pickle
 from modules import MLP
 from preprocessing import Buffer
 import time
+from reporting import WeightsReporter
 
 FEDERATED_LEARNING = "FEDERATED_LEARNING"
 
@@ -93,8 +94,13 @@ def aggregate_weights(**kwargs):
         for buffer in weights_buffer.values():
             buffer.pop()
         global_model.load_state_dict(aggregated_state_dict)
+        push_weights_to_vehicles()
     else:
         logger.debug(f"Waiting for more data to aggregate the weights.")
+
+
+def push_weights_to_vehicles():
+    weights_reporter.push_weights(global_model.state_dict())
 
 
 def create_weights_buffer(vehicle_weights_topics, **kwargs):
@@ -144,7 +150,7 @@ def create_global_model_placeholder(**kwargs):
 
 
 def main():
-    global logger, weights_buffer, global_model
+    global logger, weights_buffer, global_model, weights_reporter
 
     parser = argparse.ArgumentParser(description='Federated Learning script.')
     parser.add_argument('--logging_level', default='INFO' ,type=str, help='Logging level')
@@ -174,6 +180,9 @@ def main():
     # create buffers for the local weights of each vehicle
     weights_buffer = create_weights_buffer(vehicle_weights_topics, **vars(args))
 
+    # create a reporter to push the global weights to vehicles
+    weights_reporter = WeightsReporter(**vars(args))
+
     consuming_thread=threading.Thread(target=consume_weights_data, args=(vehicle_weights_topics,), kwargs=vars(args))
     consuming_thread.daemon=True
     consuming_thread.start()
@@ -182,7 +191,6 @@ def main():
         # create a thread to aggregate the weights each aggregation_interval_secs:
         aggregation_thread = threading.Thread(target=aggregate_weights_periodically, kwargs=vars(args))
         aggregation_thread.start()
-        
 
     consuming_thread.join()
     if args.aggregation_interval_secs > 0:
