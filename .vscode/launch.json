@@ -23,7 +23,8 @@
             "program": "federated_learning.py",
             "console": "integratedTerminal",
             "args": [
-                "--logging_level=DEBUG"
+                "--logging_level=DEBUG",
+                "--aggregation_strategy=fedyogi"
             ],
             "justMyCode": false
         }
