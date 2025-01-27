@@ -36,7 +36,7 @@ class KafkaConsumer:
         self.resubscription_thread = threading.Thread(target=self._periodic_topic_update)
         self.resubscription_thread.daemon = True
 
-    
+
     def start(self):
         """
         Start both reading and resubscription threads
@@ -85,6 +85,7 @@ class KafkaConsumer:
         if len(new_topics) > 0:
             self.parent.logger.debug(f"New topics: {list(new_topics)}; Number of available topics: {len(self.current_topics)}")
             self.resubscribe()
+
 
     def deserialize_message(self, msg):
         try:

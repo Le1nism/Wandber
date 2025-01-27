@@ -2,6 +2,7 @@ import wandb
 import argparse
 import logging
 from kafka_consumer import KafkaConsumer
+import signal 
 
 WANDBER = "WANDBER"
 
@@ -26,7 +27,13 @@ class Wandber:
             parent=self,
             kwargs=vars(args)
         )
+        signal.signal(signal.SIGINT, lambda sig, frame: self.signal_handler(sig, frame))
         self.kafka_consumer.start()
+
+    def signal_handler(self, sig, frame):
+        self.logger.debug(f"Received signal {sig}. Gracefully stopping wandb and its consumer threads.")
+        self.kafka_consumer.stop()
+        self.close_wandb()
 
 
     def push_to_wandb(self, key, value, step=None, commit=True):
@@ -56,11 +63,9 @@ def main():
     parser.add_argument('--kafka_auto_offset_reset', type=str, default='earliest', help='Start reading messages from the beginning if no offset is present')
     parser.add_argument('--kafka_topic_update_interval_secs', type=int, default=30, help='Topic update interval for the kafka reader')
     args = parser.parse_args()
-    
     wandber = Wandber(args)
-
-
 
 
 if __name__ == "__main__":
     main()
+    
