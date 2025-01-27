@@ -26,8 +26,7 @@ class Wandber:
             parent=self,
             kwargs=vars(args)
         )
-        self.kafka_consumer.consuming_thread.start()
-        self.kafka_consumer.consuming_thread.join()
+        self.kafka_consumer.start()
 
 
     def push_to_wandb(self, key, value, step=None, commit=True):

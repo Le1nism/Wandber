@@ -43,6 +43,8 @@ class KafkaConsumer:
         """
         self.consuming_thread.start()
         self.resubscription_thread.start()
+        self.consuming_thread.join()
+        self.resubscription_thread.join()
 
 
     def stop(self):
@@ -51,10 +53,6 @@ class KafkaConsumer:
         """
         self.is_running = False
         self.consumer.close()
-        
-        # Wait for threads to finish
-        self.consuming_thread.join()
-        self.resubscription_thread.join()
 
 
     def _periodic_topic_update(self):
