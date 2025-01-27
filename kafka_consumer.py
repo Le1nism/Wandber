@@ -72,16 +72,21 @@ class KafkaConsumer:
 
 
     def resubscribe(self):
-        self.consumer.subscribe(list(topics_dict.values()))
-        self.parent.logger.debug(f"Started consuming messages from topics: {list(topics_dict.values())}")
+        try:
+            self.consumer.subscribe(list(topics_dict.values()))
+        except KafkaError as e:
+            self.parent.logger.error(f"Error subscribing to topics: {e}")
+            return None
+        self.parent.logger.debug(f"(Re)Started consuming messages from topics: {list(topics_dict.values())}")
 
 
     def topic_update(self):
         available_topics = set(self.consumer.list_topics().topics.keys())
         new_topics = available_topics - self.current_topics
         self.current_topics = available_topics
-        self.parent.logger.debug(f"New topics: {list(new_topics)}; Number of available topics: {len(self.current_topics)}")
-
+        if len(new_topics) > 0:
+            self.parent.logger.debug(f"New topics: {list(new_topics)}; Number of available topics: {len(self.current_topics)}")
+            self.resubscribe()
 
     def deserialize_message(self, msg):
         try:
@@ -103,6 +108,9 @@ class KafkaConsumer:
                 if msg.error():
                     if msg.error().code() == KafkaError._PARTITION_EOF:
                         self.parent.logger.debug(f"End of partition reached: {msg.error()}")
+                    elif (msg.error().code() == KafkaError.UNKNOWN_TOPIC_OR_PART) and \
+                        (msg.error().str().split(': ')[1] in list(topics_dict.values())):
+                            self.parent.logger.info(f"No avilable vehicles yet. Please create some vehicles...")
                     else:
                         self.parent.logger.error(f"Consumer error: {msg.error()}")
                     continue
