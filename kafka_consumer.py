@@ -2,6 +2,8 @@ from confluent_kafka import Consumer, KafkaError
 import time
 import json
 import threading
+import numpy as np
+import wandb
 
 # Patterns to match different types of Kafka topics
 topics_dict = {
@@ -9,7 +11,7 @@ topics_dict = {
     "normal_data": '^.*_normal_data$', # Topics with normal data
     "statistics" : '^.*_statistics$' # Topics with statistics data
 }
-
+cluster_labels = np.arange(0, 15).astype(str).tolist()
 
 class KafkaConsumer:
     def __init__(self, parent, kwargs):
@@ -118,6 +120,25 @@ class KafkaConsumer:
                 deserialized_data = self.deserialize_message(msg)
                 if deserialized_data:
                     self.parent.logger.debug(f"Processing message from topic {msg.topic()}")
+                    if 'statistics' in msg.topic():
+                        vehicle_name = msg.topic().split('_')[0]
+                        diagnostics_cluster_percentages = deserialized_data['diagnostics_cluster_percentages']
+                        diagnostics_cluster_data = [[label, val] for (label, val) in zip(cluster_labels, diagnostics_cluster_percentages)]
+                        anomalies_cluster_percentages = deserialized_data['anomalies_cluster_percentages']
+                        anomalies_cluster_data = [[label, val] for (label, val) in zip(cluster_labels, anomalies_cluster_percentages)]
+                        diagnostics_table = wandb.Table(data=diagnostics_cluster_data, columns=['cluster', 'percentage'])
+                        anomalies_table = wandb.Table(data=anomalies_cluster_data, columns=['cluster', 'percentage'])
+                        diagnostics_barplot = wandb.plot.bar(diagnostics_table, 'cluster', 'percentage', title=f'{vehicle_name} Diagnostics Cluster Percentages')
+                        anomalies_barplot = wandb.plot.bar(anomalies_table, 'cluster', 'percentage', title=f'{vehicle_name} Anomalies Cluster Percentages')
+                        self.parent.push_to_wandb(
+                            key=f"{vehicle_name}_diagnostics_cluster_percentages",
+                            value=diagnostics_barplot)
+                        self.parent.push_to_wandb(
+                            key=f"{vehicle_name}_anomalies_cluster_percentages",
+                            value=anomalies_barplot)
+                        del deserialized_data['diagnostics_cluster_percentages']
+                        del deserialized_data['anomalies_cluster_percentages']
+
                     self.parent.push_to_wandb(
                         key=msg.topic(), 
                         value=deserialized_data)
