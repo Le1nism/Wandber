@@ -47,9 +47,8 @@ class Wandber:
 
 
     def close_wandb(self):
-        self.logger.debug("Closing wandb")
         wandb.finish()
-
+        self.logger.debug("Wandb closed")
 
 def main():
 
