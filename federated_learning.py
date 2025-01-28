@@ -11,8 +11,10 @@ from preprocessing import Buffer
 import time
 from reporting import WeightsReporter
 import signal
+import torch
 
-FEDERATED_LEARNING = "FEDERATED_LEARNING"
+
+FEDERATED_LEARNING = "fed_learning"
 
 aggregation_functions = {
     "fedavg": federated_averaging,
@@ -83,11 +85,23 @@ def aggregate_weights(**kwargs):
     if all([len(buffer) > 0 for buffer in weights_buffer.values()]):
         logger.debug(f"Aggregating the weights from {len(weights_buffer)} vehicles.")
         aggregation_function = aggregation_functions[kwargs.get('aggregation_strategy')]
+
+        for buffer in weights_buffer.values():
+            candidate_state_dict = buffer.get()
+            if any(torch.isnan(param).any() for param in candidate_state_dict.values()):
+                logger.error(f"Candidate weights from {buffer.label} contain NaNs. Skipping update.")
+                # buffer.pop()
+                return
+        
         if aggregation_function is federated_averaging:
             aggregated_state_dict = aggregation_function(global_model.state_dict(), [buffer.get() for buffer in weights_buffer.values()])
         else:
             aggregated_state_dict = aggregation_function(global_model.state_dict(), [buffer.get() for buffer in weights_buffer.values()], **kwargs)
         
+        # Check if the aggregated state dict has no NaNs
+        if any(torch.isnan(param).any() for param in aggregated_state_dict.values()):
+            logger.error("Aggregated state dict contains NaNs. Skipping update.")
+            return
         # pop the oldest element from each one of the buffers
         for buffer in weights_buffer.values():
             buffer.pop()

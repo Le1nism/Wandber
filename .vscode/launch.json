@@ -26,7 +26,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--logging_level=DEBUG",
-                "--aggregation_strategy=fedyogi",
+                "--aggregation_strategy=fedavg",
                 "--aggregation_interval_secs=5",
             ],
             "justMyCode": false
