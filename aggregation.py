@@ -41,12 +41,12 @@ def fed_yogi(global_model_state_dict, participant_models_state_dicts, **kwargs):
     moment_2 = {key: torch.zeros_like(value) for key, value in global_model_state_dict.items()}
 
     for step, (key, grad) in enumerate(sum_gradients.items()):
-        
+        exponent = step + 1
         moment_1[key] = beta1 * moment_1[key] + (1 - beta1) * grad
         moment_2[key] += (1 - beta2) * (grad ** 2 - moment_2[key])
 
-        m_hat = moment_1[key] / (1 - beta1 ** step)
-        v_hat = moment_2[key] / (1 - beta2 ** step)
+        m_hat = moment_1[key] / (1 - beta1 ** exponent)
+        v_hat = moment_2[key] / (1 - beta2 ** exponent)
 
         global_model_state_dict[key] -= learning_rate * m_hat / (torch.sqrt(v_hat) + epsilon)
 
