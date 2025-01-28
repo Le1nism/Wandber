@@ -12,7 +12,7 @@ class WeightsReporter:
          }
         self.producer = SerializingProducer(conf_prod_weights)
 
-        self.logger = logging.getLogger("GLOBAl_WEIGHTS_DISTRIBUTION")
+        self.logger = logging.getLogger("global_weights")
         self.logger.setLevel(
             str(kwargs.get(
                 'logging_level', 
