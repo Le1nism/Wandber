@@ -10,6 +10,7 @@ from modules import MLP
 from preprocessing import Buffer
 import time
 from reporting import WeightsReporter
+import signal
 
 FEDERATED_LEARNING = "FEDERATED_LEARNING"
 
@@ -61,9 +62,6 @@ def init_global_model(**kwargs):
     
 
 def process_message(topic, msg, **kwargs):
-    """
-        Process the deserialized message based on its topic.
-    """
     global weights_buffer
 
     weights_buffer[topic].add(msg)
@@ -73,7 +71,7 @@ def process_message(topic, msg, **kwargs):
         
 
 def aggregate_weights_periodically(**kwargs):
-    while True:
+    while not stop_threads:
         time.sleep(kwargs.get('aggregation_interval_secs'))
         aggregate_weights(**kwargs)
 
@@ -121,7 +119,7 @@ def consume_weights_data(vehicle_weights_topics, **kwargs):
     logger.info(f"will start consuming {vehicle_weights_topics}")
 
     try:
-        while True:
+        while not stop_threads:
             msg = consumer.poll(5.0)  
             if msg is None:
                 continue
@@ -148,9 +146,18 @@ def consume_weights_data(vehicle_weights_topics, **kwargs):
 def create_global_model_placeholder(**kwargs):
     return MLP(kwargs.get('input_dim', 59), kwargs.get('output_dim', 1), **kwargs)
 
+def signal_handler(sig, frame):
+    global stop_threads, consuming_thread, aggregation_thread
+    logger.debug(f"Received signal {sig}. Gracefully stopping FL and its consumer threads.")
+    stop_threads = True
+    consuming_thread.join()
+    if aggregation_thread.is_alive():
+        aggregation_thread.join()
+
 
 def main():
-    global logger, weights_buffer, global_model, weights_reporter
+    global logger, weights_buffer, global_model, weights_reporter, stop_threads
+    global consuming_thread, aggregation_thread
 
     parser = argparse.ArgumentParser(description='Federated Learning script.')
     parser.add_argument('--logging_level', default='INFO' ,type=str, help='Logging level')
@@ -183,6 +190,9 @@ def main():
     # create a reporter to push the global weights to vehicles
     weights_reporter = WeightsReporter(**vars(args))
 
+    logger.info(f"Starting Federated Learning with {len(vehicle_weights_topics)} vehicles.")
+    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame))
+    stop_threads = False
     consuming_thread=threading.Thread(target=consume_weights_data, args=(vehicle_weights_topics,), kwargs=vars(args))
     consuming_thread.daemon=True
     consuming_thread.start()
@@ -192,9 +202,10 @@ def main():
         aggregation_thread = threading.Thread(target=aggregate_weights_periodically, kwargs=vars(args))
         aggregation_thread.start()
 
-    consuming_thread.join()
-    if args.aggregation_interval_secs > 0:
-        aggregation_thread.join()
+    while True:
+        time.sleep(1)
+        if not consuming_thread.is_alive():
+            break
 
 
 if __name__=="__main__":
