@@ -93,7 +93,7 @@ class KafkaConsumer:
         try:
             # Decode the message value from bytes to string and parse JSON
             message_value = json.loads(msg.value().decode('utf-8'))
-            self.parent.logger.debug(f"Received message from topic {msg.topic()}")
+            # self.parent.logger.debug(f"Received message from topic {msg.topic()}")
             return message_value
         except json.JSONDecodeError as e:
             self.parent.logger.error(f"Error deserializing message: {e}")

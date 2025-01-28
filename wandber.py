@@ -37,7 +37,7 @@ class Wandber:
 
 
     def push_to_wandb(self, key, value, step=None, commit=True):
-        self.logger.debug(f"Pushing {key} to wandb")
+        # self.logger.debug(f"Pushing {key} to wandb")
         wandb.log(
             {key: value}, 
             step=(step if step is not None else self.step), 
