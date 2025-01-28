@@ -150,9 +150,6 @@ def signal_handler(sig, frame):
     global stop_threads, consuming_thread, aggregation_thread
     logger.debug(f"Received signal {sig}. Gracefully stopping FL and its consumer threads.")
     stop_threads = True
-    consuming_thread.join()
-    if aggregation_thread.is_alive():
-        aggregation_thread.join()
 
 
 def main():
@@ -190,7 +187,7 @@ def main():
     # create a reporter to push the global weights to vehicles
     weights_reporter = WeightsReporter(**vars(args))
 
-    logger.info(f"Starting Federated Learning with {len(vehicle_weights_topics)} vehicles.")
+    print(f"Starting Federated Learning with {len(vehicle_weights_topics)} vehicles.")
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame))
     stop_threads = False
     consuming_thread=threading.Thread(target=consume_weights_data, args=(vehicle_weights_topics,), kwargs=vars(args))
@@ -202,10 +199,13 @@ def main():
         aggregation_thread = threading.Thread(target=aggregate_weights_periodically, kwargs=vars(args))
         aggregation_thread.start()
 
-    while True:
+    while stop_threads is False:
         time.sleep(1)
-        if not consuming_thread.is_alive():
-            break
+    
+    if args.aggregation_interval_secs > 0:
+        aggregation_thread.join(1)
+    consuming_thread.join(1)
+    print("Federated Learning stopped.")
 
 
 if __name__=="__main__":
