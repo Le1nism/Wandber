@@ -7,8 +7,8 @@ import wandb
 
 # Patterns to match different types of Kafka topics
 topics_dict = {
-    "anomalies": "^.*_anomalies$",  # Topics containing anomalies
-    "normal_data": '^.*_normal_data$', # Topics with normal data
+    # "anomalies": "^.*_anomalies$",  # Topics containing anomalies
+    # "normal_data": '^.*_normal_data$', # Topics with normal data
     "statistics" : '^.*_statistics$' # Topics with statistics data
 }
 cluster_labels = np.arange(0, 15).astype(str).tolist()
