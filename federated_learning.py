@@ -38,7 +38,7 @@ def check_vehicle_topics(**kwargs):
     admin_client = AdminClient({'bootstrap.servers': kwargs.get('kafka_broker_url')})
     existing_topics = admin_client.list_topics(timeout=10).topics.keys()
     # get all topics ending with "_weights"
-    vehicle_topics = [topic for topic in existing_topics if topic.endswith("_weights")]
+    vehicle_topics = [topic for topic in existing_topics if topic.endswith("_weights") and topic != "global_weights"]
     logger.debug("Found the following vehicle topics: %s", vehicle_topics)
     return vehicle_topics
 
@@ -187,7 +187,7 @@ def main():
     # create a reporter to push the global weights to vehicles
     weights_reporter = WeightsReporter(**vars(args))
 
-    print(f"Starting Federated Learning with {len(vehicle_weights_topics)} vehicles.")
+    print(f"Starting Federated Learning with {len(vehicle_weights_topics)} vehicles: {vehicle_weights_topics}")
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame))
     stop_threads = False
     consuming_thread=threading.Thread(target=consume_weights_data, args=(vehicle_weights_topics,), kwargs=vars(args))
