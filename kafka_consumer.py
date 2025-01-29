@@ -46,15 +46,14 @@ class KafkaConsumer:
         """
         self.consuming_thread.start()
         self.resubscription_thread.start()
-        self.consuming_thread.join()
-        self.resubscription_thread.join()
-
 
     def stop(self):
         """
         Gracefully stop the consumer and its threads
         """
         self.is_running = False
+        self.consuming_thread.join()
+        self.resubscription_thread.join()
         self.consumer.close()
 
 
@@ -103,7 +102,7 @@ class KafkaConsumer:
 
     def read_messages(self):
         try:
-            while True:
+            while self.is_running:
                 msg = self.consumer.poll(1.0)  # Poll for new messages with a timeout of 1 second
                 if msg is None:
                     continue

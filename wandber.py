@@ -3,6 +3,7 @@ import argparse
 import logging
 from kafka_consumer import KafkaConsumer
 import signal 
+import time
 
 WANDBER = "WANDBER"
 
@@ -14,7 +15,7 @@ class Wandber:
         self.logger.setLevel(args.logging_level.upper())
         self.logger.debug("Initializing wandb")
         self.wandb_mode = ("online" if args.online else "disabled")
-
+        self.alive = True
         wandb.init(
             project=args.project_name,
             mode=self.wandb_mode,
@@ -29,11 +30,15 @@ class Wandber:
         )
         signal.signal(signal.SIGINT, lambda sig, frame: self.signal_handler(sig, frame))
         self.kafka_consumer.start()
+        while self.alive:
+            time.sleep(1)
+        self.kafka_consumer.stop()
+        self.close_wandb()
+
 
     def signal_handler(self, sig, frame):
         self.logger.debug(f"Received signal {sig}. Gracefully stopping wandb and its consumer threads.")
-        self.kafka_consumer.stop()
-        self.close_wandb()
+        self.alive = False
 
 
     def push_to_wandb(self, key, value, step=None, commit=True):
@@ -48,7 +53,7 @@ class Wandber:
 
     def close_wandb(self):
         wandb.finish()
-        self.logger.debug("Wandb closed")
+        self.logger.debug("Wandb closed correctly.")
 
 def main():
 
