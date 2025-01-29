@@ -11,7 +11,8 @@ topics_dict = {
     # "normal_data": '^.*_normal_data$', # Topics with normal data
     "statistics" : '^.*_statistics$' # Topics with statistics data
 }
-cluster_labels = np.arange(0, 15).astype(str).tolist()
+diagnostics_cluster_labels = np.arange(0, 15).astype(str).tolist()
+anomalies_cluster_labels = np.arange(0, 19).astype(str).tolist()
 
 class KafkaConsumer:
     def __init__(self, parent, kwargs):
@@ -123,9 +124,9 @@ class KafkaConsumer:
                     if 'statistics' in msg.topic():
                         vehicle_name = msg.topic().split('_')[0]
                         diagnostics_cluster_percentages = deserialized_data['diagnostics_cluster_percentages']
-                        diagnostics_cluster_data = [[label, val] for (label, val) in zip(cluster_labels, diagnostics_cluster_percentages)]
+                        diagnostics_cluster_data = [[label, val] for (label, val) in zip(diagnostics_cluster_labels, diagnostics_cluster_percentages)]
                         anomalies_cluster_percentages = deserialized_data['anomalies_cluster_percentages']
-                        anomalies_cluster_data = [[label, val] for (label, val) in zip(cluster_labels, anomalies_cluster_percentages)]
+                        anomalies_cluster_data = [[label, val] for (label, val) in zip(anomalies_cluster_labels, anomalies_cluster_percentages)]
                         diagnostics_table = wandb.Table(data=diagnostics_cluster_data, columns=['cluster', 'percentage'])
                         anomalies_table = wandb.Table(data=anomalies_cluster_data, columns=['cluster', 'percentage'])
                         diagnostics_barplot = wandb.plot.bar(diagnostics_table, 'cluster', 'percentage', title=f'{vehicle_name} Diagnostics Cluster Percentages')
