@@ -21,7 +21,7 @@ class KafkaConsumer:
         self.is_running = True
         self.current_topics = set()
         self.retry_delay = 1
-
+        self.plot_jumping_flag = 0
         configs = {'bootstrap.servers': kwargs['kafka_broker_url'],  # Kafka broker URL
                         'group.id': kwargs['kafka_consumer_group_id'],  # Consumer group for offset management
                         'auto.offset.reset': kwargs['kafka_auto_offset_reset'],  # Start reading messages from the beginning if no offset is present
@@ -121,21 +121,23 @@ class KafkaConsumer:
                 if deserialized_data:
                     self.parent.logger.debug(f"Processing message from topic {msg.topic()}")
                     if 'statistics' in msg.topic():
-                        vehicle_name = msg.topic().split('_')[0]
-                        diagnostics_cluster_percentages = deserialized_data['diagnostics_cluster_percentages']
-                        diagnostics_cluster_data = [[label, val] for (label, val) in zip(diagnostics_cluster_labels, diagnostics_cluster_percentages)]
-                        anomalies_cluster_percentages = deserialized_data['anomalies_cluster_percentages']
-                        anomalies_cluster_data = [[label, val] for (label, val) in zip(anomalies_cluster_labels, anomalies_cluster_percentages)]
-                        diagnostics_table = wandb.Table(data=diagnostics_cluster_data, columns=['cluster', 'percentage'])
-                        anomalies_table = wandb.Table(data=anomalies_cluster_data, columns=['cluster', 'percentage'])
-                        diagnostics_barplot = wandb.plot.bar(diagnostics_table, 'cluster', 'percentage', title=f'{vehicle_name} Diagnostics Cluster Percentages')
-                        anomalies_barplot = wandb.plot.bar(anomalies_table, 'cluster', 'percentage', title=f'{vehicle_name} Anomalies Cluster Percentages')
-                        self.parent.push_to_wandb(
-                            key=f"{vehicle_name}_diagnostics_cluster_percentages",
-                            value=diagnostics_barplot)
-                        self.parent.push_to_wandb(
-                            key=f"{vehicle_name}_anomalies_cluster_percentages",
-                            value=anomalies_barplot)
+                        self.plot_jumping_flag += 1
+                        if self.plot_jumping_flag % 200 == 0:
+                            vehicle_name = msg.topic().split('_')[0]
+                            diagnostics_cluster_percentages = deserialized_data['diagnostics_cluster_percentages']
+                            diagnostics_cluster_data = [[label, val] for (label, val) in zip(diagnostics_cluster_labels, diagnostics_cluster_percentages)]
+                            anomalies_cluster_percentages = deserialized_data['anomalies_cluster_percentages']
+                            anomalies_cluster_data = [[label, val] for (label, val) in zip(anomalies_cluster_labels, anomalies_cluster_percentages)]
+                            diagnostics_table = wandb.Table(data=diagnostics_cluster_data, columns=['cluster', 'percentage'])
+                            anomalies_table = wandb.Table(data=anomalies_cluster_data, columns=['cluster', 'percentage'])
+                            diagnostics_barplot = wandb.plot.bar(diagnostics_table, 'cluster', 'percentage', title=f'{vehicle_name} Diagnostics Cluster Percentages')
+                            anomalies_barplot = wandb.plot.bar(anomalies_table, 'cluster', 'percentage', title=f'{vehicle_name} Anomalies Cluster Percentages')
+                            self.parent.push_to_wandb(
+                                key=f"{vehicle_name}_diagnostics_cluster_percentages",
+                                value=diagnostics_barplot)
+                            self.parent.push_to_wandb(
+                                key=f"{vehicle_name}_anomalies_cluster_percentages",
+                                value=anomalies_barplot)
                         del deserialized_data['diagnostics_cluster_percentages']
                         del deserialized_data['anomalies_cluster_percentages']
 
