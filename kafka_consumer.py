@@ -122,7 +122,7 @@ class KafkaConsumer:
                     self.parent.logger.debug(f"Processing message from topic {msg.topic()}")
                     if 'statistics' in msg.topic():
                         self.plot_jumping_flag += 1
-                        if self.plot_jumping_flag % 200 == 0:
+                        if self.plot_jumping_flag % 10 == 0:
                             vehicle_name = msg.topic().split('_')[0]
                             diagnostics_cluster_percentages = deserialized_data['diagnostics_cluster_percentages']
                             diagnostics_cluster_data = [[label, val] for (label, val) in zip(diagnostics_cluster_labels, diagnostics_cluster_percentages)]
