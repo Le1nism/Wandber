@@ -52,8 +52,8 @@ class KafkaConsumer:
         Gracefully stop the consumer and its threads
         """
         self.is_running = False
-        self.consuming_thread.join()
-        self.resubscription_thread.join()
+        self.consuming_thread.join(1)
+        self.resubscription_thread.join(1)
         self.consumer.close()
 
 
