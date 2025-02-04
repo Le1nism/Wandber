@@ -12,7 +12,7 @@ import time
 from reporting import WeightsReporter
 import signal
 import torch
-import io
+
 
 FEDERATED_LEARNING = "fed_learning"
 
@@ -125,12 +125,6 @@ def create_weights_buffer(vehicle_weights_topics, **kwargs):
     return weights_buffer
 
 
-def deserialize_state_dict(bytes_data):
-        """Deserialize bytes back to PyTorch state dict"""
-        buffer = io.BytesIO(bytes_data)
-        return torch.load(buffer)
-
-
 def consume_weights_data(vehicle_weights_topics, **kwargs):
 
     consumer = create_consumer(**kwargs)
@@ -150,7 +144,7 @@ def consume_weights_data(vehicle_weights_topics, **kwargs):
                     logger.error(f"consumer error: {msg.error()}")
                 continue
 
-            deserialized_data = deserialize_state_dict(msg.value())
+            deserialized_data = deserialize_message(msg)
             if deserialized_data:
                 process_message(msg.topic(), deserialized_data, **kwargs)
 
