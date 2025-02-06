@@ -50,10 +50,10 @@ def deserialize_message(msg):
     try:
         # Decode the message and deserialize it into a Python dictionary
         message_value = pickle.loads(msg.value())
-        logging.debug(f"received message from topic [{msg.topic()}]")
+        logger.debug(f"received message from topic [{msg.topic()}]")
         return message_value
     except json.JSONDecodeError as e:
-        logging.error(f"Error deserializing message: {e}")
+        logger.error(f"Error deserializing message: {e}")
         return None
 
 
@@ -185,8 +185,9 @@ def main():
     parser.add_argument('--aggregation_interval_secs', type=int, default=59, help='Aggregation interval in seconds')
     args = parser.parse_args()
 
-    logger = logging.getLogger(FEDERATED_LEARNING)
-    logger.setLevel(str(args.logging_level).upper())
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=str(args.logging_level).upper())
+    logger = logging.getLogger('fed_learning')
+
 
     # create a global model placeholder
     global_model = create_global_model_placeholder(**vars(args))
@@ -201,7 +202,7 @@ def main():
     # create a reporter to push the global weights to vehicles
     weights_reporter = WeightsReporter(**vars(args))
 
-    print(f"Starting Federated Learning with {len(vehicle_weights_topics)} vehicles: {vehicle_weights_topics}")
+    logger.info(f"Starting FL with {len(vehicle_weights_topics)} vehicles: {vehicle_weights_topics}")
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame))
     stop_threads = False
     consuming_thread=threading.Thread(target=consume_weights_data, args=(vehicle_weights_topics,), kwargs=vars(args))
@@ -219,7 +220,7 @@ def main():
     if args.aggregation_interval_secs > 0:
         aggregation_thread.join(1)
     consuming_thread.join(1)
-    print("Federated Learning stopped.")
+    logger.info("Federated Learning stopped.")
 
 
 if __name__=="__main__":

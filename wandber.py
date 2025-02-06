@@ -10,7 +10,7 @@ WANDBER = "WANDBER"
 
 class Wandber:
     def __init__(self, args):
-        logging.basicConfig(level=args.logging_level.upper())
+        logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=str(args.logging_level).upper())
         self.logger = logging.getLogger(WANDBER)
         self.logger.setLevel(args.logging_level.upper())
         self.logger.debug("Initializing wandb")
