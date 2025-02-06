@@ -200,7 +200,7 @@ def main():
     weights_buffer = create_weights_buffer(vehicle_weights_topics, **vars(args))
 
     # create a reporter to push the global weights to vehicles
-    weights_reporter = WeightsReporter(**vars(args))
+    weights_reporter = WeightsReporter(logger=logger, **vars(args))
 
     logger.info(f"Starting FL with {len(vehicle_weights_topics)} vehicles: {vehicle_weights_topics}")
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame))
