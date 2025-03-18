@@ -30,6 +30,17 @@
                 "--aggregation_interval_secs=5",
             ],
             "justMyCode": false
+        },
+        {
+            "name": "SM",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "security_manager.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--logging_level=info"
+            ],
+            "justMyCode": false
         }
     ]
 }

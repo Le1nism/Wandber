@@ -6,13 +6,16 @@ import time
 from confluent_kafka import Consumer, KafkaError, SerializingProducer
 from confluent_kafka.serialization import StringSerializer
 
-from preprocessing import Buffer
+from preprocessing import HealthProbesBuffer
 from brain import Brain
 from communication import SMMetricsReporter
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import torch
 import signal
+import string
 import random
+
+SECURITY_MANAGER = "SECURITY_MANAGER"
 
 batch_counter = 0
 epoch_counter = 0
@@ -23,24 +26,21 @@ epoch_precision = 0
 epoch_recall = 0
 epoch_f1 = 0
 
+health_records_received = 0
+victim_records_received = 0
+normal_records_received = 0
 
-def create_consumer():
+def create_consumer(**kwargs):
+    def generate_random_string(length=10):
+        letters = string.ascii_letters + string.digits
+        return ''.join(random.choice(letters) for i in range(length))
     # Kafka consumer configuration
     conf_cons = {
-        'bootstrap.servers': KAFKA_BROKER,  # Kafka broker URL
-        'group.id': f'nid-consumer-group',  # Consumer group ID for message offset tracking
-        'auto.offset.reset': 'earliest'  # Start reading from the earliest message if no offset is present
+        'bootstrap.servers': kwargs.get('kafka_broker_url'),  # Kafka broker URL
+        'group.id': kwargs.get('kafka_consumer_group_id')+generate_random_string(7),  # Consumer group ID for message offset tracking
+        'auto.offset.reset': kwargs.get('kafka_auto_offset_reset')  # Start reading from the earliest message if no offset is present
     }
     return Consumer(conf_cons)
-
-
-def get_statistics_producer():
-    conf_prod_stat={
-        'bootstrap.servers': KAFKA_BROKER,  # Kafka broker URL
-        'key.serializer': StringSerializer('utf_8'),
-        'value.serializer': lambda v, ctx: json.dumps(v)
-    }
-    return SerializingProducer(conf_prod_stat)
 
 
 def deserialize_message(msg):
@@ -76,7 +76,7 @@ def process_message(topic, msg):
     if random.random() < 0.3:
         victim_buffer.add(msg)
         victim_records_received += 1
-    elif topic.endswith("_normal_data"):
+    else:
         normal_buffer.add(msg)
         normal_records_received += 1
         
@@ -87,14 +87,14 @@ def process_message(topic, msg):
 def subscribe_to_topics(topic_regex):
     global consumer
 
-    consumer.subscribe(topic_regex)
+    consumer.subscribe([topic_regex])
     logger.debug(f"(re)subscribed to health topics.")
 
 
-def consume_health_data():
+def consume_health_data(**kwargs):
     global consumer
 
-    consumer = create_consumer()
+    consumer = create_consumer(**kwargs)
 
     subscribe_to_topics('^.*_HEALTH$')
 
@@ -217,13 +217,14 @@ def resubscribe():
 
 def main():
 
-    global KAFKA_BROKER
     global batch_size, stop_threads, stats_consuming_thread, training_thread
     global victim_buffer, normal_buffer, brain, metrics_reporter, logger
     global resubscribe_interval_seconds, epoch_batches
 
     parser = argparse.ArgumentParser(description='Start the intrusion detection process.')
-    parser.add_argument('--kafka_broker', type=str, default='kafka:9092', help='Kafka broker URL')
+    parser.add_argument('--kafka_broker_url', type=str, default='kafka:9092', help='Kafka broker URL')
+    parser.add_argument('--kafka_consumer_group_id', type=str, default=SECURITY_MANAGER, help='Kafka consumer group ID')
+    parser.add_argument('--kafka_auto_offset_reset', type=str, default='earliest', help='Start reading messages from the beginning if no offset is present')
     parser.add_argument('--buffer_size', type=int, default=10000, help='Size of the message buffer')
     parser.add_argument('--batch_size', type=int, default=32, help='Size of the batch')
     parser.add_argument('--logging_level', type=str, default='INFO', help='Logging level')
@@ -234,27 +235,32 @@ def main():
     parser.add_argument('--save_model_freq_epochs', type=int, default=10, help='Number of epochs between model saving')
     parser.add_argument('--model_saving_path', type=str, default='default_sm_model.pth', help='Path to save the model')
     parser.add_argument('--initialization_strategy', type=str, default="xavier", help='Initialization strategy for global model')
+    parser.add_argument('--input_dim', type=int, default=5, help='Input dimension of the model')
+    parser.add_argument('--output_dim', type=int, default=1, help='Output dimension of the model')
+    parser.add_argument('--h_dim', type=int, default=20, help='Hidden dimension of the model')
+    parser.add_argument('--num_layers', type=int, default=3, help='Number of layers in the model')
+    parser.add_argument('--dropout', type=float, default=0.1, help='Dropout rate')
+    parser.add_argument('--optimizer', type=str, default='Adam', help='Optimizer for the model')
 
     args = parser.parse_args()
 
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=str(args.logging_level).upper())
     logger = logging.getLogger('security_manager')
 
-    KAFKA_BROKER = args.kafka_broker
-
-    logger.info(f"Starting security manager with broker {KAFKA_BROKER}")    
+    logger.info(f"Starting security manager...")    
 
     brain = Brain(**vars(args))
+    
     metrics_reporter = SMMetricsReporter(**vars(args))
 
-    victim_buffer = Buffer(args.buffer_size, label=1)
-    normal_buffer = Buffer(args.buffer_size, label=0)
+    victim_buffer = HealthProbesBuffer(args.buffer_size, label=1)
+    normal_buffer = HealthProbesBuffer(args.buffer_size, label=0)
 
     resubscribe_interval_seconds = args.kafka_topic_update_interval_secs
     resubscription_thread = threading.Thread(target=resubscribe)
     resubscription_thread.daemon = True
     
-    stats_consuming_thread=threading.Thread(target=consume_health_data)
+    stats_consuming_thread=threading.Thread(target=consume_health_data, kwargs=vars(args))
     stats_consuming_thread.daemon=True
 
     training_thread=threading.Thread(target=train_model, kwargs=vars(args))

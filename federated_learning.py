@@ -7,7 +7,7 @@ from confluent_kafka.admin import AdminClient
 from aggregation import federated_averaging, fed_yogi
 import pickle
 from modules import MLP
-from preprocessing import Buffer
+from preprocessing import GenericBuffer
 import time
 from reporting import WeightsReporter
 import signal
@@ -121,7 +121,7 @@ def create_weights_buffer(vehicle_weights_topics, **kwargs):
     """
     weights_buffer = {}
     for topic in vehicle_weights_topics:
-        weights_buffer[topic] = Buffer(size=kwargs.get('weights_buffer_size', 3), label=topic)
+        weights_buffer[topic] = GenericBuffer(size=kwargs.get('weights_buffer_size', 3), label=topic)
     return weights_buffer
 
 

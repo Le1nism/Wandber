@@ -6,7 +6,7 @@ import logging
 
 class SMMetricsReporter:
     def __init__(self, **kwargs):
-        kafka_broker_url = kwargs.get('kafka_broker')
+        kafka_broker_url = kwargs.get('kafka_broker_url', 'kafka:9092')
         conf_prod_stat={
         'bootstrap.servers': kafka_broker_url,  # Kafka broker URL
         'key.serializer': StringSerializer('utf_8'),
@@ -15,7 +15,7 @@ class SMMetricsReporter:
         
         self.producer = SerializingProducer(conf_prod_stat)    
         self.logger = logging.getLogger("sec_mgmt_metrics_reporter")
-        self.logger.setLevel(kwargs.get('logging_level', str(kwargs.get('logging_level', 'INFO')).upper()))
+        self.logger.setLevel(str(kwargs.get('logging_level', 'INFO')).upper())
 
     def report(self, metrics):
 
