@@ -9,6 +9,8 @@ WANDBER = "WANDBER"
 
 
 class Wandber:
+
+
     def __init__(self, args):
         logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=str(args.logging_level).upper())
         self.logger = logging.getLogger(WANDBER)
@@ -54,6 +56,7 @@ class Wandber:
     def close_wandb(self):
         wandb.finish()
         self.logger.debug("Wandb closed correctly.")
+
 
 def main():
 

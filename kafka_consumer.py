@@ -32,12 +32,12 @@ class KafkaConsumer:
         self.consumer = Consumer(configs)
         self.resubscribe()
         self.topic_update()
-        self.consuming_thread = threading.Thread(target=self.read_messages)
+        self.consuming_thread = threading.Thread(target=self.consuming_thread_function)
         self.consuming_thread.daemon = True
 
         # Thread for periodic resubscription
         self.resubscribe_interval_seconds = kwargs['kafka_topic_update_interval_secs']
-        self.resubscription_thread = threading.Thread(target=self._periodic_topic_update)
+        self.resubscription_thread = threading.Thread(target=self.resusbscription_thread_function)
         self.resubscription_thread.daemon = True
 
 
@@ -59,7 +59,7 @@ class KafkaConsumer:
         self.consumer.close()
 
 
-    def _periodic_topic_update(self):
+    def resusbscription_thread_function(self):
         """
         Periodically Kafka topics update.
         This method runs in a separate thread.
@@ -102,9 +102,10 @@ class KafkaConsumer:
             return None
     
 
-    def read_messages(self):
-        try:
-            while self.is_running:
+    def consuming_thread_function(self):
+        
+        while self.is_running:
+            try:
                 msg = self.consumer.poll(1.0)  # Poll for new messages with a timeout of 1 second
                 if msg is None:
                     continue
@@ -150,10 +151,8 @@ class KafkaConsumer:
                     self.parent.logger.warning("Deserialized message is None")
 
                 self.retry_delay = 1  # Reset retry delay on success
-        except Exception as e:
-            self.parent.logger.error(f"Error while reading message: {e}")
-            self.parent.logger.debug(f"Retrying in {self.retry_delay} seconds...")
-            time.sleep(self.retry_delay)
-            self.retry_delay = min(self.retry_delay * 2, 60)  # Exponential backoff, max 60 seconds
-        finally:
-            self.consumer.close()  # Close the Kafka consumer on exit
+            except Exception as e:
+                self.parent.logger.error(f"Error while reading message: {e}")
+                self.parent.logger.debug(f"Retrying in {self.retry_delay} seconds...")
+                time.sleep(self.retry_delay)
+                self.retry_delay = min(self.retry_delay * 2, 60)  # Exponential backoff, max 60 seconds
