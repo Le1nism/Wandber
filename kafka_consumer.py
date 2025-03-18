@@ -9,7 +9,8 @@ import wandb
 topics_dict = {
     # "anomalies": "^.*_anomalies$",  # Topics containing anomalies
     # "normal_data": '^.*_normal_data$', # Topics with normal data
-    "statistics" : '^.*_statistics$' # Topics with statistics data
+    "statistics" : '^.*_statistics$', # Topics with statistics data
+    "health_probes": '^.*_HEALTH$' # Topics with health probes data
 }
 diagnostics_cluster_labels = np.arange(0, 15).astype(str).tolist()
 anomalies_cluster_labels = np.arange(0, 19).astype(str).tolist()
@@ -46,6 +47,7 @@ class KafkaConsumer:
         """
         self.consuming_thread.start()
         self.resubscription_thread.start()
+
 
     def stop(self):
         """
@@ -147,11 +149,11 @@ class KafkaConsumer:
                 else:
                     self.parent.logger.warning("Deserialized message is None")
 
-                retry_delay = 1  # Reset retry delay on success
+                self.retry_delay = 1  # Reset retry delay on success
         except Exception as e:
             self.parent.logger.error(f"Error while reading message: {e}")
             self.parent.logger.debug(f"Retrying in {self.retry_delay} seconds...")
             time.sleep(self.retry_delay)
-            retry_delay = min(self.retry_delay * 2, 60)  # Exponential backoff, max 60 seconds
+            self.retry_delay = min(self.retry_delay * 2, 60)  # Exponential backoff, max 60 seconds
         finally:
             self.consumer.close()  # Close the Kafka consumer on exit
