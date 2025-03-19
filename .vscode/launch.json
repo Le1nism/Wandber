@@ -38,7 +38,9 @@
             "program": "security_manager.py",
             "console": "integratedTerminal",
             "args": [
-                "--logging_level=info"
+                "--logging_level=info",
+                "--vehicle_names=angela bob claude daniel emily frank",
+                "--preconf_attacking_vehicles=daniel frank"
             ],
             "justMyCode": false
         }

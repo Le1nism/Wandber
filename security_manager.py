@@ -3,8 +3,7 @@ import logging
 import threading
 import json
 import time
-from confluent_kafka import Consumer, KafkaError, SerializingProducer
-from confluent_kafka.serialization import StringSerializer
+from confluent_kafka import Consumer, KafkaError
 
 from preprocessing import HealthProbesBuffer
 from brain import Brain
@@ -16,6 +15,8 @@ import string
 import random
 
 SECURITY_MANAGER = "SECURITY_MANAGER"
+HEALTHY = "HEALTHY"
+INFECTED = "INFECTED"
 
 batch_counter = 0
 epoch_counter = 0
@@ -70,10 +71,10 @@ def process_message(topic, msg):
 
     assert topic.endswith("_HEALTH"), f"Unexpected topic {topic}"
     health_records_received += 1
-    # TODO we have to implement here our labelling strategy. who is victim and who is not
     
-    # for now, we just throw a dice... TODO implement labelling strategy
-    if random.random() < 0.3:
+    vehicle_name = topic.split('_')[0]
+    
+    if vehicle_state_dict[vehicle_name] == INFECTED:
         victim_buffer.add(msg)
         victim_records_received += 1
     else:
@@ -219,7 +220,7 @@ def main():
 
     global batch_size, stop_threads, stats_consuming_thread, training_thread
     global victim_buffer, normal_buffer, brain, metrics_reporter, logger
-    global resubscribe_interval_seconds, epoch_batches
+    global resubscribe_interval_seconds, epoch_batches, vehicle_state_dict
 
     parser = argparse.ArgumentParser(description='Start the intrusion detection process.')
     parser.add_argument('--kafka_broker_url', type=str, default='kafka:9092', help='Kafka broker URL')
@@ -241,8 +242,18 @@ def main():
     parser.add_argument('--num_layers', type=int, default=3, help='Number of layers in the model')
     parser.add_argument('--dropout', type=float, default=0.1, help='Dropout rate')
     parser.add_argument('--optimizer', type=str, default='Adam', help='Optimizer for the model')
-
+    parser.add_argument('--vehicle_names', type=str, default='', help='Space-separated array of vehicle names')
+    parser.add_argument('--preconf_attacking_vehicles', type=str, default='', help='Space-separated array of preconfigured infected vehicles')
     args = parser.parse_args()
+
+    assert len(args.vehicle_names) > 0
+    vehicle_names = args.vehicle_names.split()
+    preconf_attacking_vehicles = args.preconf_attacking_vehicles.split() if args.preconf_attacking_vehicles else []
+    vehicle_state_dict = {vehicle_name: HEALTHY for vehicle_name in vehicle_names}
+    for vehicle_name in preconf_attacking_vehicles:
+        assert vehicle_name in vehicle_state_dict
+        vehicle_state_dict[vehicle_name] = INFECTED
+    
 
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=str(args.logging_level).upper())
     logger = logging.getLogger('security_manager')
