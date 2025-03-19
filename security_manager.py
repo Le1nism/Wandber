@@ -253,12 +253,14 @@ def main():
     for vehicle_name in preconf_attacking_vehicles:
         assert vehicle_name in vehicle_state_dict
         vehicle_state_dict[vehicle_name] = INFECTED
-    
 
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=str(args.logging_level).upper())
     logger = logging.getLogger('security_manager')
+    logger.info(f"Starting security manager...")
 
-    logger.info(f"Starting security manager...")    
+    logger.info("Vehicle State Dictionary:")
+    for vehicle, state in vehicle_state_dict.items():
+        logger.info(f"  {vehicle}: {state}")  
 
     brain = Brain(**vars(args))
     
