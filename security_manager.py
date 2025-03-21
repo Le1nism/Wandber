@@ -92,7 +92,7 @@ def process_message(topic, msg):
         normal_buffer.add(msg)
         normal_records_received += 1
         
-    if health_records_received % 500 == 0:
+    if health_records_received % 50 == 0:
         logger.info(f"Received {health_records_received} health records: {victim_records_received} victims, {normal_records_received} normal.")
 
 
