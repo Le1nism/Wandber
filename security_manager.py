@@ -4,7 +4,8 @@ import threading
 import json
 import time
 from confluent_kafka import Consumer, KafkaError
-
+import requests
+import os
 from preprocessing import HealthProbesBuffer
 from brain import Brain
 from communication import SMMetricsReporter
@@ -17,6 +18,7 @@ import random
 SECURITY_MANAGER = "SECURITY_MANAGER"
 HEALTHY = "HEALTHY"
 INFECTED = "INFECTED"
+HOST_IP = os.getenv("HOST_IP")
 
 batch_counter = 0
 epoch_counter = 0
@@ -64,6 +66,15 @@ def deserialize_message(msg):
         return None
 
 
+def get_status_from_manager(vehicle_name):
+    url = f"http://{HOST_IP}:{MANAGER_PORT}/vehicle-status"
+    data = {"vehicle_name": vehicle_name}
+    response = requests.post(url, json=data)
+    logger.debug(f"Vehicle-status Response Status Code: {response.status_code}")
+    logger.debug(f"Vehicle-status Response Body: {response.text}")
+    return response.text
+
+
 def process_message(topic, msg):
     global health_records_received, victim_records_received, normal_records_received
 
@@ -74,7 +85,7 @@ def process_message(topic, msg):
     
     vehicle_name = topic.split('_')[0]
     
-    if vehicle_state_dict[vehicle_name] == INFECTED:
+    if get_status_from_manager(vehicle_name) == INFECTED:
         victim_buffer.add(msg)
         victim_records_received += 1
     else:
@@ -218,6 +229,7 @@ def resubscribe():
 
 def main():
 
+    global MANAGER_PORT
     global batch_size, stop_threads, stats_consuming_thread, training_thread
     global victim_buffer, normal_buffer, brain, metrics_reporter, logger
     global resubscribe_interval_seconds, epoch_batches, vehicle_state_dict
@@ -243,24 +255,18 @@ def main():
     parser.add_argument('--dropout', type=float, default=0.1, help='Dropout rate')
     parser.add_argument('--optimizer', type=str, default='Adam', help='Optimizer for the model')
     parser.add_argument('--vehicle_names', type=str, default='', help='Space-separated array of vehicle names')
-    parser.add_argument('--preconf_attacking_vehicles', type=str, default='', help='Space-separated array of preconfigured infected vehicles')
+    parser.add_argument('--manager_port', type=int, default=5000, help='Port of the train manager service')
     args = parser.parse_args()
+
+    MANAGER_PORT = args.manager_port
 
     assert len(args.vehicle_names) > 0
     vehicle_names = args.vehicle_names.split()
-    preconf_attacking_vehicles = args.preconf_attacking_vehicles.split() if args.preconf_attacking_vehicles else []
     vehicle_state_dict = {vehicle_name: HEALTHY for vehicle_name in vehicle_names}
-    for vehicle_name in preconf_attacking_vehicles:
-        assert vehicle_name in vehicle_state_dict
-        vehicle_state_dict[vehicle_name] = INFECTED
 
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=str(args.logging_level).upper())
     logger = logging.getLogger('security_manager')
     logger.info(f"Starting security manager...")
-
-    logger.info("Vehicle State Dictionary:")
-    for vehicle, state in vehicle_state_dict.items():
-        logger.info(f"  {vehicle}: {state}")  
 
     brain = Brain(**vars(args))
     
