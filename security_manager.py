@@ -88,6 +88,14 @@ def store_datum_on_buffer(current_vehicle_status, msg):
         normal_records_received += 1
 
 
+def send_attack_mitigation_request(vehicle_name):
+    url = f"http://{HOST_IP}:{MANAGER_PORT}/stop-attack"
+    data = {"vehicle_name": vehicle_name}
+    response = requests.post(url, json=data)
+    logger.debug(f"Mitigate-attack Response Status Code: {response.status_code}")
+    logger.debug(f"Mitigate-attack Response Body: {response.text}")
+
+
 def process_message(topic, msg):
     global health_records_received
     global online_batch_accuracy, online_batch_precision, online_batch_recall, online_batch_f1
@@ -105,8 +113,12 @@ def process_message(topic, msg):
 
     store_datum_on_buffer(current_vehicle_status, msg)
     
-    prediction = classify(msg)
+    prediction = online_classification(msg)
     online_batch_preds.append(prediction)
+
+    if prediction == current_label:
+        if prediction == 1:
+            send_attack_mitigation_request(vehicle_name)
         
     if health_records_received % 50 == 0:
         logger.info(f"Received {health_records_received} health records: {victim_records_received} victims, {normal_records_received} normal.")
@@ -122,7 +134,8 @@ def process_message(topic, msg):
         online_batch_labels = []
         online_batch_preds = []
 
-def classify(msg):
+
+def online_classification(msg):
     brain.model.eval()
     with brain.model_lock, torch.no_grad():
         x = torch.tensor(list(msg.values()), dtype=torch.float32)
