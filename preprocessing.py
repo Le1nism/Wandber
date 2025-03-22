@@ -65,13 +65,15 @@ class HealthProbesBuffer:
         feature_tensors = []
         class_labels = []
 
-        # TODO optimise this
-        for record in record_list:
-            feature_tensors.append(torch.Tensor(list(record.values())))
-        
+        feature_tensors = torch.tensor(
+            [list(record.values()) for record in record_list],
+            dtype=torch.float32
+        )
+
+        feature_tensors = torch.nan_to_num(feature_tensors, nan=0.0, posinf=1e6, neginf=-1e6)
+
         if len(record_list) > 0:
-            feature_tensors = torch.stack(feature_tensors)
-            class_labels = torch.tensor([[self.label]] * len(feature_tensors)).to(torch.float32)
+            class_labels = torch.tensor([[self.label]] * feature_tensors.shape[0]).to(torch.float32)
 
         
         return feature_tensors, class_labels

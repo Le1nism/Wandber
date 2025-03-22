@@ -39,9 +39,8 @@
             "console": "integratedTerminal",
             "args": [
                 "--logging_level=info",
-                "--vehicle_names=angela bob claude daniel emily frank",
-                "--preconf_attacking_vehicles=daniel frank"
-            ],
+                "--vehicle_names=angela bob claude daniel emily frank"
+                ],
             "justMyCode": false
         }
     ]

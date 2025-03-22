@@ -248,7 +248,7 @@ def main():
     parser.add_argument('--save_model_freq_epochs', type=int, default=10, help='Number of epochs between model saving')
     parser.add_argument('--model_saving_path', type=str, default='default_sm_model.pth', help='Path to save the model')
     parser.add_argument('--initialization_strategy', type=str, default="xavier", help='Initialization strategy for global model')
-    parser.add_argument('--input_dim', type=int, default=5, help='Input dimension of the model')
+    parser.add_argument('--input_dim', type=int, default=3, help='Input dimension of the model')
     parser.add_argument('--output_dim', type=int, default=1, help='Output dimension of the model')
     parser.add_argument('--h_dim', type=int, default=20, help='Hidden dimension of the model')
     parser.add_argument('--num_layers', type=int, default=3, help='Number of layers in the model')
