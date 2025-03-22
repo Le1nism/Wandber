@@ -32,6 +32,8 @@ epoch_f1 = 0
 health_records_received = 0
 victim_records_received = 0
 normal_records_received = 0
+online_batch_labels = []
+online_batch_preds = []
 
 def create_consumer(**kwargs):
     def generate_random_string(length=10):
@@ -75,25 +77,58 @@ def get_status_from_manager(vehicle_name):
     return response.text
 
 
-def process_message(topic, msg):
-    global health_records_received, victim_records_received, normal_records_received
+def store_datum_on_buffer(current_vehicle_status, msg):
+    global victim_records_received, normal_records_received
 
-    logger.debug(f"Processing message from topic [{topic}]")
-
-    assert topic.endswith("_HEALTH"), f"Unexpected topic {topic}"
-    health_records_received += 1
-    
-    vehicle_name = topic.split('_')[0]
-    
-    if get_status_from_manager(vehicle_name) == INFECTED:
+    if current_vehicle_status == INFECTED:
         victim_buffer.add(msg)
         victim_records_received += 1
     else:
         normal_buffer.add(msg)
         normal_records_received += 1
+
+
+def process_message(topic, msg):
+    global health_records_received
+    global online_batch_accuracy, online_batch_precision, online_batch_recall, online_batch_f1
+    global online_batch_labels, online_batch_preds
+
+    logger.debug(f"Processing message from topic [{topic}]")
+    assert topic.endswith("_HEALTH"), f"Unexpected topic {topic}"
+    
+    health_records_received += 1
+
+    vehicle_name = topic.split('_')[0]
+    current_vehicle_status = get_status_from_manager(vehicle_name)
+    current_label = 1 if current_vehicle_status == INFECTED else 0
+    online_batch_labels.append(torch.tensor(current_label).float())
+
+    store_datum_on_buffer(current_vehicle_status, msg)
+    
+    prediction = classify(msg)
+    online_batch_preds.append(prediction)
         
     if health_records_received % 50 == 0:
         logger.info(f"Received {health_records_received} health records: {victim_records_received} victims, {normal_records_received} normal.")
+        online_batch_accuracy = accuracy_score(online_batch_labels, online_batch_preds)
+        online_batch_precision = precision_score(online_batch_labels, online_batch_preds, zero_division=0)
+        online_batch_recall = recall_score(online_batch_labels, online_batch_preds, zero_division=0)
+        online_batch_f1 = f1_score(online_batch_labels, online_batch_preds, zero_division=0)
+        metrics_reporter.report({
+                    'online_accuracy': online_batch_accuracy,
+                    'online_precision': online_batch_precision,
+                    'online_recall': online_batch_recall,
+                    'online_f1': online_batch_f1})
+        online_batch_labels = []
+        online_batch_preds = []
+
+def classify(msg):
+    brain.model.eval()
+    with brain.model_lock, torch.no_grad():
+        x = torch.tensor(list(msg.values()), dtype=torch.float32)
+        y_pred = brain.model(x)
+        y_pred = (y_pred > 0.5).float()
+        return y_pred
 
 
 def subscribe_to_topics(topic_regex):
