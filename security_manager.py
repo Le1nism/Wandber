@@ -123,7 +123,8 @@ def process_message(topic, msg):
 
     if prediction == current_label:
         if prediction == 1:
-            send_attack_mitigation_request(vehicle_name)
+            if MITIGATION:
+                send_attack_mitigation_request(vehicle_name)
         
     if health_records_received % 50 == 0:
         logger.info(f"Received {health_records_received} health records: {victim_records_received} victims, {normal_records_received} normal.")
@@ -282,7 +283,7 @@ def resubscribe():
 
 def main():
 
-    global MANAGER_PORT
+    global MANAGER_PORT, MITIGATION
     global batch_size, stop_threads, stats_consuming_thread, training_thread
     global victim_buffer, normal_buffer, brain, metrics_reporter, logger
     global resubscribe_interval_seconds, epoch_batches, vehicle_state_dict
@@ -309,9 +310,11 @@ def main():
     parser.add_argument('--optimizer', type=str, default='Adam', help='Optimizer for the model')
     parser.add_argument('--vehicle_names', type=str, default='', help='Space-separated array of vehicle names')
     parser.add_argument('--manager_port', type=int, default=5000, help='Port of the train manager service')
+    parser.add_argument('--mitigation', action="store_true", help='Perform mitigation or not')
     args = parser.parse_args()
 
     MANAGER_PORT = args.manager_port
+    MITIGATION = args.mitigation
 
     assert len(args.vehicle_names) > 0
     vehicle_names = args.vehicle_names.split()
@@ -319,7 +322,7 @@ def main():
 
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=str(args.logging_level).upper())
     logger = logging.getLogger('security_manager')
-    logger.info(f"Starting security manager...")
+    logger.info(f"Starting security manager... Attack mitigation: {MITIGATION}")
 
     brain = Brain(**vars(args))
     
