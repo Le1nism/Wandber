@@ -39,7 +39,8 @@
             "console": "integratedTerminal",
             "args": [
                 "--logging_level=info",
-                "--vehicle_names=angela bob claude daniel emily frank"
+                "--vehicle_names=angela bob claude daniel emily frank",
+                "--input_dim=3"
                 ],
             "justMyCode": false
         }

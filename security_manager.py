@@ -90,10 +90,15 @@ def store_datum_on_buffer(current_vehicle_status, msg):
 
 def send_attack_mitigation_request(vehicle_name):
     url = f"http://{HOST_IP}:{MANAGER_PORT}/stop-attack"
-    data = {"vehicle_name": vehicle_name}
+    data = {"vehicle_name": vehicle_name, "origin": "AI"}
     response = requests.post(url, json=data)
-    logger.debug(f"Mitigate-attack Response Status Code: {response.status_code}")
-    logger.debug(f"Mitigate-attack Response Body: {response.text}")
+    try:
+        response_json = response.json()
+        logger.debug(f"Mitigate-attack Response JSON: {response_json}")
+    except json.JSONDecodeError as e:
+        logger.error(f"Error decoding JSON from response: {e}")
+        response_json = {}
+
 
 
 def process_message(topic, msg):
