@@ -101,7 +101,6 @@ def send_attack_mitigation_request(vehicle_name):
         response_json = {}
 
 
-
 def process_message(topic, msg):
     global health_records_received
     global online_batch_accuracy, online_batch_precision, online_batch_recall, online_batch_f1
