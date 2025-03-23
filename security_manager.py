@@ -95,6 +95,7 @@ def send_attack_mitigation_request(vehicle_name):
     try:
         response_json = response.json()
         logger.debug(f"Mitigate-attack Response JSON: {response_json}")
+        metrics_reporter.report({'mitigation_time': response_json.get('mitigation_time', 0)})
     except json.JSONDecodeError as e:
         logger.error(f"Error decoding JSON from response: {e}")
         response_json = {}
