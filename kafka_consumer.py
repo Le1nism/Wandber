@@ -11,7 +11,8 @@ topics_dict = {
     # "normal_data": '^.*_normal_data$', # Topics with normal data
     "statistics" : '^.*_statistics$', # Topics with statistics data
     "health_probes": '^.*_HEALTH$', # Topics with health probes data
-    "security_topic": "security"    # Training stats for the security manager model
+    "security_topic": "security",    # Training stats for the security manager model
+    "dashboard_probes": "DASHBOARD_PROBES"
 }
 diagnostics_cluster_labels = np.arange(0, 15).astype(str).tolist()
 anomalies_cluster_labels = np.arange(0, 19).astype(str).tolist()
