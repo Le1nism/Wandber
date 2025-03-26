@@ -38,7 +38,7 @@
             "program": "security_manager.py",
             "console": "integratedTerminal",
             "args": [
-                "--logging_level=info",
+                "--logging_level=debug",
                 "--vehicle_names=angela bob claude daniel emily frank",
                 "--input_dim=3"
                 ],
