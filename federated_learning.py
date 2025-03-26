@@ -183,6 +183,12 @@ def main():
     parser.add_argument('--aggregation_strategy', type=str, default="fedavg", help='Aggregation strategy for FL')
     parser.add_argument('--weights_buffer_size', type=int, default=3, help='Size of the buffer for weights')
     parser.add_argument('--aggregation_interval_secs', type=int, default=59, help='Aggregation interval in seconds')
+    parser.add_argument('--input_dim', type=int, default=3, help='Input dimension of the model')
+    parser.add_argument('--output_dim', type=int, default=1, help='Output dimension of the model')
+    parser.add_argument('--h_dim', type=int, default=20, help='Hidden dimension of the model')
+    parser.add_argument('--num_layers', type=int, default=3, help='Number of layers in the model')
+    parser.add_argument('--layer_norm', action="store_true", help='Perform layer normalization')
+
     args = parser.parse_args()
 
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=str(args.logging_level).upper())
