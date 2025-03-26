@@ -17,10 +17,16 @@ import random
 from flask import Flask
 
 
+
 SECURITY_MANAGER = "SECURITY_MANAGER"
 HEALTHY = "HEALTHY"
 INFECTED = "INFECTED"
 HOST_IP = os.getenv("HOST_IP")
+
+logger = logging.getLogger('werkzeug')
+logger.name = SECURITY_MANAGER
+
+
 
 batch_counter = 0
 epoch_counter = 0
