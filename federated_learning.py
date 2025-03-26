@@ -158,7 +158,7 @@ def consume_weights_data(vehicle_weights_topics, **kwargs):
 
 
 def create_global_model_placeholder(**kwargs):
-    return MLP(kwargs.get('input_dim', 59), kwargs.get('output_dim', 1), **kwargs)
+    return MLP(**kwargs)
 
 def signal_handler(sig, frame):
     global stop_threads, consuming_thread, aggregation_thread
