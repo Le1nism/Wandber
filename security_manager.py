@@ -14,6 +14,8 @@ import torch
 import signal
 import string
 import random
+from flask import Flask
+
 
 SECURITY_MANAGER = "SECURITY_MANAGER"
 HEALTHY = "HEALTHY"
@@ -312,7 +314,8 @@ def main():
     parser.add_argument('--optimizer', type=str, default='Adam', help='Optimizer for the model')
     parser.add_argument('--vehicle_names', type=str, default='', help='Space-separated array of vehicle names')
     parser.add_argument('--manager_port', type=int, default=5000, help='Port of the train manager service')
-    parser.add_argument('--mitigation', action="store_true", help='Perform mitigation or not')
+    parser.add_argument('--mitigation', action="store_true", help='Perform mitigation since SM launching or attend explicit command')
+    parser.add_argument('--sm_port', type=int, default=5001, help='Port of the security manager service')
     args = parser.parse_args()
 
     MANAGER_PORT = args.manager_port
@@ -350,6 +353,26 @@ def main():
     training_thread.start()
     resubscription_thread.start()
     
+    app = Flask(__name__)
+    @app.route('/start-mitigation', methods=['POST'])
+    def activate_mitigation():
+        global MITIGATION
+        MITIGATION = True
+        logger.info("Mitigation activated")
+        return 'Mitigation activated', 200
+    
+    @app.route('/stop-mitigation', methods=['POST'])
+    def deactivate_mitigation():
+        global MITIGATION
+        MITIGATION = False
+        logger.info("Mitigation deactivated")
+        return 'Mitigation deactivated', 200
+    
+    flask_thread = threading.Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': args.sm_port})
+    flask_thread.daemon = True
+    flask_thread.start()
+    logger.info(f"Mitigation launching service ready at {args.sm_port}")
+
     while not stop_threads:
         time.sleep(1)
     
