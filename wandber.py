@@ -62,7 +62,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='Wandb reporter process for Open FAIR.')
     parser.add_argument('--logging_level', default='INFO' ,type=str, help='Logging level')
-    parser.add_argument('--project_name', type=str, default="OPEN_FAIR", help='Wandb Project name')
+    parser.add_argument('--project_name', type=str, default="MY_OF", help='Wandb Project name')
     parser.add_argument('--run_name', type=str, default="Some run", help='Wandb run name')
     parser.add_argument('--online', action='store_true', help='Send wand metrics to the public wandb cloud')
     parser.add_argument('--kafka_broker_url', type=str, default='kafka:9092', help='Kafka broker URL')
