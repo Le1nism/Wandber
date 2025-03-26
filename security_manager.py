@@ -316,6 +316,8 @@ def main():
     parser.add_argument('--manager_port', type=int, default=5000, help='Port of the train manager service')
     parser.add_argument('--mitigation', action="store_true", help='Perform mitigation since SM launching or attend explicit command')
     parser.add_argument('--sm_port', type=int, default=5001, help='Port of the security manager service')
+    parser.add_argument('--layer_norm', action="store_true", help='Perform layer normalization')
+    
     args = parser.parse_args()
 
     MANAGER_PORT = args.manager_port
