@@ -137,6 +137,7 @@ def process_message(topic, msg):
                     'online_precision': online_batch_precision,
                     'online_recall': online_batch_recall,
                     'online_f1': online_batch_f1})
+        logger.debug(f"Online metrics: accuracy={online_batch_accuracy}, precision={online_batch_precision}, recall={online_batch_recall}, f1={online_batch_f1}")
         online_batch_labels = []
         online_batch_preds = []
 
@@ -254,10 +255,11 @@ def train_model(**kwargs):
                     'f1': epoch_f1,
                     'diagnostics_processed': normal_records_received,
                     'anomalies_processed': victim_records_received})
-                
+
                 epoch_loss = epoch_accuracy = epoch_precision = epoch_recall = epoch_f1 = 0
 
                 if epoch_counter % save_model_freq_epochs == 0:
+                    logger.debug(f"Training Epoch {epoch_counter}: loss={epoch_loss}, accuracy={epoch_accuracy}, precision={epoch_precision}, recall={epoch_recall}, f1={epoch_f1}")
                     model_path = kwargs.get('model_saving_path', 'default_sm_model.pth')
                     logger.info(f"Saving model after {epoch_counter} epochs as {model_path}.")
                     brain.save_model()
