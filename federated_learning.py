@@ -9,7 +9,7 @@ import pickle
 from modules import MLP
 from preprocessing import GenericBuffer
 import time
-from reporting import WeightsReporter
+from reporting import WeightsReporter, GlobalMetricsReporter
 import signal
 import torch
 import pandas as pd
@@ -113,8 +113,8 @@ def evaluate_new_model():
     epoch_recall /= len(eval_feats)
     epoch_f1 /= len(eval_feats)
     logger.info(f"Eval Accuracy: {epoch_accuracy}, Precision: {epoch_precision}, Recall: {epoch_recall}, F1: {epoch_f1}")
+    global_metrics_reporter.report_metrics({"accuracy": epoch_accuracy, "precision": epoch_precision, "recall": epoch_recall, "f1": epoch_f1})
     
-
 
 def aggregate_weights(**kwargs):
     global global_model, weights_buffer
@@ -237,7 +237,7 @@ def load_eval_df(kwargs):
     
 
 def main():
-    global logger, weights_buffer, global_model, weights_reporter, stop_threads
+    global logger, weights_buffer, global_model, weights_reporter, global_metrics_reporter, stop_threads
     global consuming_thread, aggregation_thread, eval_feats, eval_labels
 
     parser = argparse.ArgumentParser(description='Federated Learning script.')
@@ -277,6 +277,9 @@ def main():
 
     # create a reporter to push the global weights to vehicles
     weights_reporter = WeightsReporter(logger=logger, **vars(args))
+
+    # create a reporter to push the global metrics to wandb
+    global_metrics_reporter = GlobalMetricsReporter(logger=logger, **vars(args))
 
     # load eval dataframe:
     eval_feats, eval_labels = load_eval_df(vars(args))
