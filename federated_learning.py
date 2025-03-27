@@ -113,7 +113,7 @@ def evaluate_new_model():
     epoch_recall /= len(eval_feats)
     epoch_f1 /= len(eval_feats)
     logger.info(f"Eval Accuracy: {epoch_accuracy}, Precision: {epoch_precision}, Recall: {epoch_recall}, F1: {epoch_f1}")
-    global_metrics_reporter.report_metrics({"accuracy": epoch_accuracy, "precision": epoch_precision, "recall": epoch_recall, "f1": epoch_f1})
+    global_metrics_reporter.report_metrics({'accuracy': epoch_accuracy, 'precision': epoch_precision, 'recall': epoch_recall, 'f1': epoch_f1})
     
 
 def aggregate_weights(**kwargs):
