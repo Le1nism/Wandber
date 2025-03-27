@@ -230,8 +230,8 @@ def load_eval_df(kwargs):
         eval_labels = eval_labels[:-1]
 
     # transform to pytorch:
-    eval_feats = torch.tensor(eval_feats, dtype=torch.float32)
-    eval_labels = torch.tensor(eval_labels, dtype=torch.long)
+    eval_feats = torch.tensor(np.array(eval_feats), dtype=torch.float32)
+    eval_labels = torch.tensor(np.array(eval_labels), dtype=torch.long)
 
     return eval_feats, eval_labels
     

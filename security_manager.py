@@ -42,6 +42,7 @@ victim_records_received = 0
 normal_records_received = 0
 online_batch_labels = []
 online_batch_preds = []
+mitigation_reward = 0
 
 def create_consumer(**kwargs):
     def generate_random_string(length=10):
@@ -109,8 +110,28 @@ def send_attack_mitigation_request(vehicle_name):
         response_json = {}
 
 
+def mitigation_and_rewarding(prediction, current_label, vehicle_name):
+    global mitigation_reward
+    if prediction == 1:
+        if prediction == current_label:
+            # True positive.
+            if MITIGATION:
+                send_attack_mitigation_request(vehicle_name)
+            mitigation_reward += true_positive_reward
+        else:
+            # False positive
+            mitigation_reward -= false_positive_reward
+    else:
+        if prediction == current_label:
+            # True negative
+            mitigation_reward += true_negative_reward
+        else:
+            # False negative
+            mitigation_reward -= false_negative_reward
+
+
 def process_message(topic, msg):
-    global health_records_received
+    global health_records_received, mitigation_reward
     global online_batch_accuracy, online_batch_precision, online_batch_recall, online_batch_f1
     global online_batch_labels, online_batch_preds
 
@@ -129,10 +150,7 @@ def process_message(topic, msg):
     prediction = online_classification(msg)
     online_batch_preds.append(prediction)
 
-    if prediction == current_label:
-        if prediction == 1:
-            if MITIGATION:
-                send_attack_mitigation_request(vehicle_name)
+    mitigation_and_rewarding(prediction, current_label, vehicle_name)
         
     if health_records_received % 50 == 0:
         logger.info(f"Received {health_records_received} health records: {victim_records_received} victims, {normal_records_received} normal.")
@@ -144,10 +162,18 @@ def process_message(topic, msg):
                     'online_accuracy': online_batch_accuracy,
                     'online_precision': online_batch_precision,
                     'online_recall': online_batch_recall,
-                    'online_f1': online_batch_f1})
-        logger.debug(f"Online metrics: accuracy={online_batch_accuracy}, precision={online_batch_precision}, recall={online_batch_recall}, f1={online_batch_f1}")
+                    'online_f1': online_batch_f1,
+                    'mitigation_reward': mitigation_reward
+                    })
+        logger.debug(f"Online metrics: accuracy={online_batch_accuracy}," + \
+                     f"precision={online_batch_precision}, " + \
+                     f"recall={online_batch_recall}, " + \
+                     f"f1={online_batch_f1}" + \
+                     f"mitigation_reward={mitigation_reward}")
+        
         online_batch_labels = []
         online_batch_preds = []
+        mitigation_reward = 0
 
 
 def online_classification(msg):
@@ -297,6 +323,7 @@ def main():
     global batch_size, stop_threads, stats_consuming_thread, training_thread
     global victim_buffer, normal_buffer, brain, metrics_reporter, logger
     global resubscribe_interval_seconds, epoch_batches, vehicle_state_dict
+    global true_positive_reward, false_positive_reward, true_negative_reward, false_negative_reward
 
     parser = argparse.ArgumentParser(description='Start the intrusion detection process.')
     parser.add_argument('--kafka_broker_url', type=str, default='kafka:9092', help='Kafka broker URL')
@@ -323,11 +350,18 @@ def main():
     parser.add_argument('--mitigation', action="store_true", help='Perform mitigation since SM launching or attend explicit command')
     parser.add_argument('--sm_port', type=int, default=5001, help='Port of the security manager service')
     parser.add_argument('--layer_norm', action="store_true", help='Perform layer normalization')
-    
+    parser.add_argument('--true_positive_reward', type=float, default=1.0, help='Reward for a true positive prediction')
+    parser.add_argument('--true_negative_reward', type=float, default=-0.4, help='Reward for a true negative prediction')
+    parser.add_argument('--false_positive_reward', type=float, default=-4, help='Reward for a false positive prediction')
+    parser.add_argument('--false_negative_reward', type=float, default=-8, help='Reward for a false negative prediction')
     args = parser.parse_args()
 
     MANAGER_PORT = args.manager_port
     MITIGATION = args.mitigation
+    true_positive_reward = args.true_positive_reward
+    true_negative_reward = args.true_negative_reward
+    false_positive_reward = args.false_positive_reward
+    false_negative_reward = args.false_negative_reward
 
     assert len(args.vehicle_names) > 0
     vehicle_names = args.vehicle_names.split()
