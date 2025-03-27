@@ -1,6 +1,7 @@
 from confluent_kafka import SerializingProducer
 from confluent_kafka.serialization import StringSerializer
 import pickle
+import json
 
 class WeightsReporter:
     def __init__(self, logger, **kwargs):
@@ -27,13 +28,14 @@ class GlobalMetricsReporter:
         conf_prod_weights={
         'bootstrap.servers': kwargs.get('kafka_broker_url'),  # Kafka broker URL
         'key.serializer': StringSerializer('utf_8'),
-        'value.serializer': lambda v, ctx: pickle.dumps(v)
+        'value.serializer': lambda v, ctx: json.dumps(v)
          }
         self.producer = SerializingProducer(conf_prod_weights)
         self.logger = logger
 
     def report_metrics(self, metrics):
         global_metrics_topic=f"global_metrics"
+        
         try:
             self.producer.produce(topic=global_metrics_topic, value=metrics)
             self.producer.flush()
