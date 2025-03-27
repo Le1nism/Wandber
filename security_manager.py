@@ -120,14 +120,14 @@ def mitigation_and_rewarding(prediction, current_label, vehicle_name):
             mitigation_reward += true_positive_reward
         else:
             # False positive
-            mitigation_reward -= false_positive_reward
+            mitigation_reward += false_positive_reward
     else:
         if prediction == current_label:
             # True negative
             mitigation_reward += true_negative_reward
         else:
             # False negative
-            mitigation_reward -= false_negative_reward
+            mitigation_reward += false_negative_reward
 
 
 def process_message(topic, msg):
