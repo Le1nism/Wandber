@@ -79,7 +79,8 @@ def aggregate_weights_periodically(**kwargs):
     while not stop_threads:
         time.sleep(kwargs.get('aggregation_interval_secs'))
         aggregate_weights(**kwargs)
-        evaluate_new_model()
+        if mode == 'OF':
+            evaluate_new_model()
 
 
 def dict_to_tensor(data_dict):
@@ -209,10 +210,9 @@ def load_eval_df(kwargs):
     
     # feats
     eval_feats = whole_eval_df.drop(['cluster','class'], axis=1).values
-    # replace nans with zeros:
-    eval_feats = np.nan_to_num(eval_feats)
-    # remove outliers above 30000 and below -4000
-    eval_feats = np.clip(eval_feats, -4000, 30000)
+    # replace nans with zeros and remove infs:
+    eval_feats = np.nan_to_num(eval_feats, posinf=1e6, neginf=-1e6)
+    # eval_feats = np.clip(eval_feats, -4000, 30000)
 
     # labels
     labels = whole_eval_df['class'].values
@@ -236,7 +236,16 @@ def load_eval_df(kwargs):
     return eval_feats, eval_labels
     
 
+def parse_str_list(arg):
+    # Split the input string by commas and convert each element to int
+    try:
+        return [str(x) for x in arg.split(',')]
+    except ValueError:
+        raise argparse.ArgumentTypeError("Arguments must be strings separated by commas")
+    
+
 def main():
+    global mode
     global logger, weights_buffer, global_model, weights_reporter, global_metrics_reporter, stop_threads
     global consuming_thread, aggregation_thread, eval_feats, eval_labels
 
@@ -259,7 +268,15 @@ def main():
     parser.add_argument('--num_layers', type=int, default=3, help='Number of layers in the model')
     parser.add_argument('--layer_norm', action="store_true", help='Perform layer normalization')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for evaluation')
+    parser.add_argument('--mode', type=str, default='eval', help='Mode: OF or SW')
+    parser.add_argument('--probe_metrics',  type=parse_str_list, default=['RTT', 'INBOUND', 'OUTBOUND', 'CPU', 'MEM'])
+
     args = parser.parse_args()
+
+    mode = args.mode
+    if mode == 'SW':
+        args.input_dim = args.input_dim + len(args.probe_metrics)
+        args.output_dim = 4
 
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=str(args.logging_level).upper())
     logger = logging.getLogger('fed_learning')
@@ -284,7 +301,7 @@ def main():
     # load eval dataframe:
     eval_feats, eval_labels = load_eval_df(vars(args))
 
-    logger.info(f"Starting FL with {len(vehicle_weights_topics)} vehicles: {vehicle_weights_topics}")
+    logger.info(f"Starting FL with {len(vehicle_weights_topics)} in {mode} mode for vehicles: {vehicle_weights_topics}")
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame))
     stop_threads = False
     consuming_thread=threading.Thread(target=consume_weights_data, args=(vehicle_weights_topics,), kwargs=vars(args))

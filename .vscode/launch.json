@@ -28,7 +28,10 @@
                 "--logging_level=DEBUG",
                 "--aggregation_strategy=fedavg",
                 "--aggregation_interval_secs=5",
-                "--layer_norm"
+                "--layer_norm",
+                "--mode=SW",
+                "--probe_metrics=RTT INBOUND OUTBOUND"
+
             ],
             "justMyCode": false
         },
