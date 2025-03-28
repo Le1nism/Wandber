@@ -268,7 +268,7 @@ def main():
     parser.add_argument('--num_layers', type=int, default=3, help='Number of layers in the model')
     parser.add_argument('--layer_norm', action="store_true", help='Perform layer normalization')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for evaluation')
-    parser.add_argument('--mode', type=str, default='eval', help='Mode: OF or SW')
+    parser.add_argument('--mode', type=str, default='OF', help='Mode: OF or SW')
     parser.add_argument('--probe_metrics',  type=parse_str_list, default=['RTT', 'INBOUND', 'OUTBOUND', 'CPU', 'MEM'])
 
     args = parser.parse_args()
