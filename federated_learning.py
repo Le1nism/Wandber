@@ -278,8 +278,8 @@ def main():
         args.input_dim = args.input_dim + len(args.probe_metrics)
         args.output_dim = 4
 
-    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=str(args.logging_level).upper())
-    logger = logging.getLogger('fed_learning')
+    logging.basicConfig(format='%(name)s-%(levelname)s-%(message)s', level=str(args.logging_level).upper())
+    logger = logging.getLogger('[FL]')
 
 
     # create a global model placeholder
@@ -301,7 +301,7 @@ def main():
     # load eval dataframe:
     eval_feats, eval_labels = load_eval_df(vars(args))
 
-    logger.info(f"Starting FL with {len(vehicle_weights_topics)} in {mode} mode for vehicles: {vehicle_weights_topics}")
+    logger.info(f"Starting FL with {len(vehicle_weights_topics)} in {mode} mode for vehicles: {vehicle_weights_topics}, probing metrics: {args.probe_metrics}")
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame))
     stop_threads = False
     consuming_thread=threading.Thread(target=consume_weights_data, args=(vehicle_weights_topics,), kwargs=vars(args))
