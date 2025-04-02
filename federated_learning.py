@@ -9,9 +9,12 @@ import pickle
 from modules import MLP
 from preprocessing import GenericBuffer
 import time
-from reporting import WeightsReporter
+from reporting import WeightsReporter, GlobalMetricsReporter
 import signal
 import torch
+import pandas as pd
+import numpy as np
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 
 FEDERATED_LEARNING = "fed_learning"
@@ -76,7 +79,43 @@ def aggregate_weights_periodically(**kwargs):
     while not stop_threads:
         time.sleep(kwargs.get('aggregation_interval_secs'))
         aggregate_weights(**kwargs)
+        if mode == 'OF':
+            evaluate_new_model()
 
+
+def dict_to_tensor(data_dict):
+    
+    uncampled_values = [ (value  if isinstance(value, (int, float)) and not np.isnan(value) else 0.0) for value in data_dict.values() ]
+    clampled_values = [ max(min(value, 3000000), -4000) for value in uncampled_values ]
+    # Convert the list of values to a PyTorch tensor
+    tensor = torch.tensor(clampled_values, dtype=torch.float32)
+    return tensor
+
+
+def evaluate_new_model():
+    global epoch_accuracy, epoch_precision, epoch_recall, epoch_f1
+    epoch_accuracy = 0
+    epoch_precision = 0
+    epoch_recall = 0
+    epoch_f1 = 0
+    logger.debug("Evaluating new model...")
+    global_model.eval()
+    with torch.no_grad():
+        for batch_feats, batch_labels in zip(eval_feats, eval_labels): 
+            batch_preds = global_model(batch_feats)
+            batch_preds = (batch_preds > 0.5).float()
+            epoch_accuracy += accuracy_score(batch_labels, batch_preds)
+            epoch_precision += precision_score(batch_labels, batch_preds, zero_division=0)
+            epoch_recall += recall_score(batch_labels, batch_preds, zero_division=0)
+            epoch_f1 += f1_score(batch_labels, batch_preds, zero_division=0)
+        
+    epoch_accuracy /= len(eval_feats)
+    epoch_precision /= len(eval_feats)
+    epoch_recall /= len(eval_feats)
+    epoch_f1 /= len(eval_feats)
+    logger.info(f"Eval Accuracy: {epoch_accuracy}, Precision: {epoch_precision}, Recall: {epoch_recall}, F1: {epoch_f1}")
+    global_metrics_reporter.report_metrics({'accuracy': epoch_accuracy, 'precision': epoch_precision, 'recall': epoch_recall, 'f1': epoch_f1})
+    
 
 def aggregate_weights(**kwargs):
     global global_model, weights_buffer
@@ -158,7 +197,7 @@ def consume_weights_data(vehicle_weights_topics, **kwargs):
 
 
 def create_global_model_placeholder(**kwargs):
-    return MLP(kwargs.get('input_dim', 59), kwargs.get('output_dim', 1), **kwargs)
+    return MLP(**kwargs)
 
 def signal_handler(sig, frame):
     global stop_threads, consuming_thread, aggregation_thread
@@ -166,9 +205,49 @@ def signal_handler(sig, frame):
     stop_threads = True
 
 
+def load_eval_df(kwargs):
+    whole_eval_df = pd.read_csv('data/final_synth_eval_ds.csv', index_col=0)
+    
+    # feats
+    eval_feats = whole_eval_df.drop(['cluster','class'], axis=1).values
+    # replace nans with zeros and remove infs:
+    eval_feats = np.nan_to_num(eval_feats, posinf=1e6, neginf=-1e6)
+    # eval_feats = np.clip(eval_feats, -4000, 30000)
+
+    # labels
+    labels = whole_eval_df['class'].values
+    eval_labels = [0 if label == 'Normal' else 1 for label in labels]
+    
+    batch_size = kwargs.get('batch_size', 32)
+
+    # divide feats and eval labels into batches
+    eval_feats = [eval_feats[i:i+batch_size] for i in range(0, len(eval_feats), batch_size)]
+    eval_labels = [eval_labels[i:i+batch_size] for i in range(0, len(eval_labels), batch_size)]
+
+    # remove last batch if it's smaller than the batch size
+    if len(eval_feats[-1]) < batch_size:
+        eval_feats = eval_feats[:-1]
+        eval_labels = eval_labels[:-1]
+
+    # transform to pytorch:
+    eval_feats = torch.tensor(np.array(eval_feats), dtype=torch.float32)
+    eval_labels = torch.tensor(np.array(eval_labels), dtype=torch.long)
+
+    return eval_feats, eval_labels
+    
+
+def parse_str_list(arg):
+    # Split the input string by commas and convert each element to int
+    try:
+        return [str(x) for x in arg.split(',')]
+    except ValueError:
+        raise argparse.ArgumentTypeError("Arguments must be strings separated by commas")
+    
+
 def main():
-    global logger, weights_buffer, global_model, weights_reporter, stop_threads
-    global consuming_thread, aggregation_thread
+    global mode
+    global logger, weights_buffer, global_model, weights_reporter, global_metrics_reporter, stop_threads
+    global consuming_thread, aggregation_thread, eval_feats, eval_labels
 
     parser = argparse.ArgumentParser(description='Federated Learning script.')
     parser.add_argument('--logging_level', default='INFO' ,type=str, help='Logging level')
@@ -182,11 +261,25 @@ def main():
     parser.add_argument('--initialization_strategy', type=str, default="xavier", help='Initialization strategy for global model')
     parser.add_argument('--aggregation_strategy', type=str, default="fedavg", help='Aggregation strategy for FL')
     parser.add_argument('--weights_buffer_size', type=int, default=3, help='Size of the buffer for weights')
-    parser.add_argument('--aggregation_interval_secs', type=int, default=59, help='Aggregation interval in seconds')
+    parser.add_argument('--aggregation_interval_secs', type=int, default=30, help='Aggregation interval in seconds')
+    parser.add_argument('--input_dim', type=int, default=59, help='Input dimension of the model')
+    parser.add_argument('--output_dim', type=int, default=1, help='Output dimension of the model')
+    parser.add_argument('--h_dim', type=int, default=128, help='Hidden dimension of the model')
+    parser.add_argument('--num_layers', type=int, default=3, help='Number of layers in the model')
+    parser.add_argument('--layer_norm', action="store_true", help='Perform layer normalization')
+    parser.add_argument('--batch_size', type=int, default=32, help='Batch size for evaluation')
+    parser.add_argument('--mode', type=str, default='OF', help='Mode: OF or SW')
+    parser.add_argument('--probe_metrics',  type=parse_str_list, default=['RTT', 'INBOUND', 'OUTBOUND', 'CPU', 'MEM'])
+
     args = parser.parse_args()
 
-    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=str(args.logging_level).upper())
-    logger = logging.getLogger('fed_learning')
+    mode = args.mode
+    if mode == 'SW':
+        args.input_dim = args.input_dim + len(args.probe_metrics)
+        args.output_dim = 4
+
+    logging.basicConfig(format='%(name)s-%(levelname)s-%(message)s', level=str(args.logging_level).upper())
+    logger = logging.getLogger('[FL]')
 
 
     # create a global model placeholder
@@ -202,7 +295,13 @@ def main():
     # create a reporter to push the global weights to vehicles
     weights_reporter = WeightsReporter(logger=logger, **vars(args))
 
-    logger.info(f"Starting FL with {len(vehicle_weights_topics)} vehicles: {vehicle_weights_topics}")
+    # create a reporter to push the global metrics to wandb
+    global_metrics_reporter = GlobalMetricsReporter(logger=logger, **vars(args))
+
+    # load eval dataframe:
+    eval_feats, eval_labels = load_eval_df(vars(args))
+
+    logger.info(f"Starting FL with {len(vehicle_weights_topics)} in {mode} mode for vehicles: {vehicle_weights_topics}, probing metrics: {args.probe_metrics}")
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame))
     stop_threads = False
     consuming_thread=threading.Thread(target=consume_weights_data, args=(vehicle_weights_topics,), kwargs=vars(args))
